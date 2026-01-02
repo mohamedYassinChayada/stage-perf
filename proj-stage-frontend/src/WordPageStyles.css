@@ -1,0 +1,216 @@
+/* Word-like page styling */
+.mce-content-body {
+  background-color: #f0f0f0 !important;
+  padding: 40px !important;
+  box-sizing: border-box !important;
+}
+
+/* A4 page size (scaled for screen) */
+.word-page {
+  width: 21cm;
+  min-height: 29.7cm;
+  padding: 0; /* Let the content container handle padding */
+  margin: 1cm auto;
+  background-color: white;
+  box-shadow: 0 4px 5px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+  page-break-after: always;
+  border: 1px solid #d3d3d3;
+  position: relative;
+}
+
+/* This is the critical container for content and overflow detection */
+.word-page-content {
+  padding: 2cm 2cm 3cm 2cm; /* Generous padding with extra space at bottom for page numbers */
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden; /* This prevents content from visually spilling out */
+}
+
+/* Last page doesn't need a page break */
+.word-page:last-child {
+  page-break-after: auto;
+}
+
+/* Page break styling */
+.page-break {
+  display: block;
+  width: 100%;
+  height: 20px;
+  margin: 20px 0;
+  border: none;
+  page-break-after: always;
+  background-color: #f0f0f0;
+  cursor: default;
+  user-select: none;
+  position: relative;
+  /* Word-specific attributes will be added via JS */
+}
+
+.page-break::after {
+  content: "Page Break";
+  display: block;
+  position: absolute;
+  font-size: 12px;
+  color: #555;
+  width: 100%;
+  text-align: center;
+  top: 2px;
+  font-weight: bold;
+}
+
+.page-break::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 10px;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, #999, #999 5px, transparent 5px, transparent 10px);
+}
+
+/* Style for header/footer areas */
+.word-page-header {
+  position: absolute;
+  top: 1cm;
+  left: 2cm;
+  right: 2cm;
+  height: 1cm;
+  border-bottom: 1px dotted #ccc;
+  z-index: 1;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 5px;
+}
+
+.word-page-header:hover, .word-page-footer:hover {
+  background-color: rgba(240, 248, 255, 0.9);
+  border: 1px dotted #99c;
+}
+
+.word-page-footer {
+  position: absolute;
+  bottom: 1cm;
+  left: 2cm;
+  right: 2cm;
+  height: 1cm;
+  border-top: 1px dotted #ccc;
+  text-align: center;
+  z-index: 1;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 5px;
+}
+
+/* Page number styling */
+.word-page-number {
+  position: absolute !important;
+  bottom: 0.5cm !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  color: #777 !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* This rule is now obsolete as padding is handled by word-page-content */
+/* 
+.word-page {
+  padding-bottom: 3cm !important; 
+}
+*/
+
+/* Print styling */
+@media print {
+  .mce-content-body {
+    padding: 0 !important;
+    background-color: white !important;
+  }
+  
+  .word-page {
+    margin: 0;
+    box-shadow: none;
+    border: none;
+  }
+  
+  .word-page-content {
+    overflow: visible; /* Ensure all content is visible for printing */
+  }
+  
+  .page-break {
+    display: block;
+    page-break-after: always;
+    border: none;
+    height: 0;
+    margin: 0;
+  }
+  
+  .page-break::after, .page-break::before {
+    display: none;
+  }
+
+  .word-page-header, .word-page-footer {
+    background-color: transparent;
+    border: none;
+  }
+
+  .word-page-header:hover, .word-page-footer:hover {
+    background-color: transparent;
+    border: none;
+  }
+
+  /* Hide page numbers during print preview */
+  .word-page-number {
+    display: none !important;
+  }
+}
+
+/* Custom content styling */
+.word-page h1 {
+  font-size: 24pt;
+  margin-top: 0;
+  color: #333;
+}
+
+.word-page h2 {
+  font-size: 18pt;
+  color: #444;
+}
+
+.word-page h3 {
+  font-size: 14pt;
+  color: #555;
+}
+
+.word-page p {
+  margin-bottom: 10pt;
+}
+
+/* Table styling */
+.word-page table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 15pt 0;
+}
+
+.word-page table td, .word-page table th {
+  border: 1px solid #ddd;
+  padding: 8pt;
+}
+
+.word-page table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.word-page table th {
+  padding-top: 10pt;
+  padding-bottom: 10pt;
+  text-align: left;
+  background-color: #f2f2f2;
+  color: #333;
+}

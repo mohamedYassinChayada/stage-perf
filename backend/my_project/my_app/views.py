@@ -1,0 +1,1941 @@
+"""
+API views for OCR functionality and Document management with QR codes.
+"""
+
+import time
+import logging
+from rest_framework import status, generics
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from django.http import HttpResponse, Http404
+from django.shortcuts import get_object_or_404
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
+from .models import Document, QRLink, ACL, Attachment, Label, Collection, DocumentLabel, DocumentCollection, ShareLink, DocumentVersion, AuditLog, Action
+from django.contrib.auth.models import Group
+from .serializers import (
+    OCRUploadSerializer, OCRResponseSerializer, OCRErrorSerializer,
+    DocumentSerializer, DocumentCreateSerializer, QRCodeSerializer,
+    GroupSerializer, UserGroupSerializer, GroupMembershipSerializer,
+    ShareLinkSerializer, ShareLinkCreateSerializer, ACLSerializer,
+    DocumentVersionSerializer, DocumentVersionListSerializer, AuditLogSerializer, DocumentRestoreSerializer
+)
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.contrib.auth import authenticate, login, logout
+from rest_framework.authtoken.models import Token
+from rest_framework.authentication import TokenAuthentication
+from django.db.models import Q, F
+from rest_framework.decorators import authentication_classes, permission_classes
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from .audit import log_audit_event, log_document_view, log_document_edit, log_document_share, log_document_export
+from django.contrib.postgres.search import SearchQuery, SearchRank
+import re
+import numpy as np
+import cv2
+from .permissions import DocumentAccessPermission, user_can_perform_action
+from .utils.ocr import extract_text_from_file, get_ocr_info, extract_text_with_positions, extract_text_from_pdf_with_positions
+from .utils.qrcode_generator import update_document_qr_code, get_qr_code_info
+
+logger = logging.getLogger(__name__)
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Extract text from uploaded image or PDF file using OCR",
+    operation_summary="OCR Text Extraction",
+    request_body=OCRUploadSerializer,
+    responses={
+        200: openapi.Response(
+            description="OCR processing successful",
+            schema=OCRResponseSerializer
+        ),
+        400: openapi.Response(
+            description="Bad request - invalid file or validation error",
+            schema=OCRErrorSerializer
+        ),
+        500: openapi.Response(
+            description="Internal server error - OCR processing failed",
+            schema=OCRErrorSerializer
+        )
+    },
+    consumes=['multipart/form-data'],
+    tags=['OCR']
+)
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def ocr_extract_text(request):
+    """
+    Extract text from uploaded image or PDF file using OCR.
+    
+    This endpoint accepts file uploads and returns the extracted text.
+    The file is processed using EasyOCR engine with advanced image preprocessing
+    for improved accuracy and better language support.
+    
+    **Supported file types:**
+    - Images: PNG, JPEG, BMP, TIFF, WebP
+    - Documents: PDF (converted to images for OCR)
+    
+    **File size limit:** 10MB
+    
+    **Returns:**
+    - success: Boolean indicating if OCR was successful
+    - extracted_text: The text content extracted from the file
+    - filename: Original filename of the uploaded file
+    - file_type: Type of file processed (image or pdf)
+    - processing_time: Time taken for OCR processing
+    - message: Additional information or error details
+    """
+    try:
+        # Validate request data
+        serializer = OCRUploadSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            logger.warning(f"OCR upload validation failed: {serializer.errors}")
+            return Response(
+                {
+                    "error": "Invalid file upload",
+                    "error_code": "VALIDATION_ERROR",
+                    "details": serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the uploaded file
+        uploaded_file = serializer.validated_data['file']
+        filename = uploaded_file.name
+        
+        logger.info(f"Processing OCR for file: {filename}")
+        
+        # Read file content
+        try:
+            file_bytes = uploaded_file.read()
+        except Exception as e:
+            logger.error(f"Error reading uploaded file: {str(e)}")
+            return Response(
+                {
+                    "error": "Failed to read uploaded file",
+                    "error_code": "FILE_READ_ERROR",
+                    "details": {"message": str(e)}
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Determine file type
+        file_ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        file_type = "pdf" if file_ext == "pdf" else "image"
+        
+        # Process OCR
+        start_time = time.time()
+        
+        try:
+            extracted_text, success = extract_text_from_file(file_bytes, filename)
+            processing_time = time.time() - start_time
+            
+        except Exception as e:
+            processing_time = time.time() - start_time
+            logger.error(f"OCR processing failed for {filename}: {str(e)}")
+            
+            return Response(
+                {
+                    "error": "OCR processing failed",
+                    "error_code": "OCR_PROCESSING_ERROR",
+                    "details": {
+                        "message": str(e),
+                        "filename": filename,
+                        "processing_time": processing_time
+                    }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # Prepare response
+        response_data = {
+            "success": success,
+            "extracted_text": extracted_text,
+            "filename": filename,
+            "file_type": file_type,
+            "processing_time": round(processing_time, 2)
+        }
+        
+        # Add message for unsuccessful processing
+        if not success:
+            response_data["message"] = "OCR processing completed but no text was extracted or an error occurred."
+            logger.warning(f"OCR processing unsuccessful for {filename}: {extracted_text}")
+        else:
+            response_data["message"] = "OCR processing completed successfully."
+            logger.info(f"OCR processing successful for {filename}. Extracted {len(extracted_text)} characters.")
+        
+        # Return appropriate status code
+        response_status = status.HTTP_200_OK if success else status.HTTP_200_OK
+        
+        return Response(response_data, status=response_status)
+        
+    except Exception as e:
+        logger.error(f"Unexpected error in OCR endpoint: {str(e)}")
+        return Response(
+            {
+                "error": "Internal server error",
+                "error_code": "INTERNAL_ERROR",
+                "details": {"message": "An unexpected error occurred during processing"}
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get information about the OCR endpoint",
+    operation_summary="OCR Endpoint Information",
+    responses={
+        200: openapi.Response(
+            description="Endpoint information",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'endpoint': openapi.Schema(type=openapi.TYPE_STRING),
+                    'supported_formats': openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(type=openapi.TYPE_STRING)
+                    ),
+                    'max_file_size': openapi.Schema(type=openapi.TYPE_STRING),
+                    'description': openapi.Schema(type=openapi.TYPE_STRING),
+                }
+            )
+        )
+    },
+    tags=['OCR']
+)
+@api_view(['GET'])
+def ocr_info(request):
+    """
+    Get comprehensive information about the OCR system capabilities and configuration.
+    """
+    try:
+        ocr_info_data = get_ocr_info()
+        
+        # Add endpoint specific information
+        ocr_info_data.update({
+            "endpoint": "/api/ocr/extract/",
+            "description": "Upload images or PDF files to extract text using EasyOCR technology.",
+            "features": [
+                "Advanced neural network-based OCR",
+                "Support for 80+ languages",
+                "Image preprocessing for better accuracy",
+                "PDF to image conversion",
+                "Confidence scoring",
+                "Error handling and validation"
+            ],
+            "usage": "Send a POST request with a 'file' parameter containing your image or PDF file."
+        })
+        
+        return Response(ocr_info_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Error getting OCR info: {str(e)}")
+        return Response({
+            "error": "Failed to get OCR information",
+            "error_code": "INFO_ERROR",
+            "details": {"message": str(e)}
+                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Extract text with detailed positioning information from uploaded image or PDF file",
+    operation_summary="OCR Text Extraction with Positioning",
+    request_body=OCRUploadSerializer,
+    responses={
+        200: openapi.Response(
+            description="OCR processing successful with positioning data",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                    'text': openapi.Schema(type=openapi.TYPE_STRING),
+                    'lines': openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'line_number': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                'text': openapi.Schema(type=openapi.TYPE_STRING),
+                                'bbox': openapi.Schema(type=openapi.TYPE_OBJECT),
+                                'confidence': openapi.Schema(type=openapi.TYPE_NUMBER)
+                            }
+                        )
+                    ),
+                    'blocks': openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(type=openapi.TYPE_OBJECT)
+                    ),
+                    'image_size': openapi.Schema(type=openapi.TYPE_OBJECT),
+                    'confidence': openapi.Schema(type=openapi.TYPE_NUMBER),
+                    'filename': openapi.Schema(type=openapi.TYPE_STRING),
+                    'file_type': openapi.Schema(type=openapi.TYPE_STRING),
+                    'processing_time': openapi.Schema(type=openapi.TYPE_NUMBER)
+                }
+            )
+        ),
+        400: openapi.Response(
+            description="Bad request - invalid file or validation error",
+            schema=OCRErrorSerializer
+        ),
+        500: openapi.Response(
+            description="Internal server error - OCR processing failed",
+            schema=OCRErrorSerializer
+        )
+    },
+    consumes=['multipart/form-data'],
+    tags=['OCR']
+)
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def ocr_extract_detailed(request):
+    """
+    Extract text with detailed positioning information from uploaded image or PDF file.
+    
+    This endpoint provides enhanced OCR results including:
+    - Text organized by lines with proper line breaks
+    - Bounding box coordinates for each text block
+    - Relative positioning information
+    - Confidence scores per line and block
+    - Image dimensions for coordinate reference
+    
+    **Supported file types:**
+    - Images: PNG, JPEG, BMP, TIFF, WebP
+    - Documents: PDF (converted to images for OCR)
+    
+    **File size limit:** 10MB
+    
+    **Returns detailed positioning data:**
+    - lines: Array of text lines with positioning
+    - blocks: Individual text blocks with coordinates
+    - image_size: Original image dimensions
+    - bbox: Bounding box coordinates for each element
+    """
+    try:
+        # Validate request data
+        serializer = OCRUploadSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            logger.warning(f"OCR detailed upload validation failed: {serializer.errors}")
+            return Response(
+                {
+                    "error": "Invalid file upload",
+                    "error_code": "VALIDATION_ERROR",
+                    "details": serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the uploaded file
+        uploaded_file = serializer.validated_data['file']
+        filename = uploaded_file.name
+        
+        logger.info(f"Processing detailed OCR for file: {filename}")
+        
+        # Read file content
+        try:
+            file_bytes = uploaded_file.read()
+        except Exception as e:
+            logger.error(f"Error reading uploaded file: {str(e)}")
+            return Response(
+                {
+                    "error": "Failed to read uploaded file",
+                    "error_code": "FILE_READ_ERROR",
+                    "details": {"message": str(e)}
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Determine file type
+        file_ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        file_type = "pdf" if file_ext == "pdf" else "image"
+        
+        # Process OCR with positioning
+        start_time = time.time()
+        
+        try:
+            if file_type == "image":
+                detailed_result, success = extract_text_with_positions(file_bytes)
+            else:
+                # For PDFs, use FULL positioning extraction with all pages
+                detailed_result, success = extract_text_from_pdf_with_positions(file_bytes)
+            
+            processing_time = time.time() - start_time
+            
+        except Exception as e:
+            processing_time = time.time() - start_time
+            logger.error(f"Detailed OCR processing failed for {filename}: {str(e)}")
+            
+            return Response(
+                {
+                    "error": "OCR processing failed",
+                    "error_code": "OCR_PROCESSING_ERROR",
+                    "details": {
+                        "message": str(e),
+                        "filename": filename,
+                        "processing_time": processing_time
+                    }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # Prepare response
+        response_data = {
+            "success": success,
+            "text": detailed_result.get("text", ""),
+            "lines": detailed_result.get("lines", []),
+            "blocks": detailed_result.get("blocks", []),
+            "image_size": detailed_result.get("image_size", {}),
+            "confidence": detailed_result.get("confidence", 0.0),
+            "total_blocks": detailed_result.get("total_blocks", 0),
+            "total_lines": detailed_result.get("total_lines", 0),
+            "filename": filename,
+            "file_type": file_type,
+            "processing_time": round(processing_time, 2)
+        }
+        
+        # Add PDF-specific metadata if available
+        if "pdf_pages" in detailed_result:
+            response_data["pdf_pages"] = detailed_result.get("pdf_pages", 0)
+        
+        # Add message
+        if not success:
+            response_data["message"] = "OCR processing completed but no text was extracted or an error occurred."
+            logger.warning(f"Detailed OCR processing unsuccessful for {filename}")
+        else:
+            response_data["message"] = "OCR processing with positioning completed successfully."
+            logger.info(f"Detailed OCR processing successful for {filename}. Extracted {len(detailed_result.get('text', ''))} characters in {detailed_result.get('total_lines', 0)} lines.")
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Unexpected error in detailed OCR endpoint: {str(e)}")
+        return Response(
+            {
+                "error": "Internal server error",
+                "error_code": "INTERNAL_ERROR",
+                "details": {"message": "An unexpected error occurred during processing"}
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+# Document Management Views
+
+class DocumentListCreateView(generics.ListCreateAPIView):
+    """
+    List all documents or create a new document with automatic QR code generation.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Short-circuit for schema generation (swagger)
+        if getattr(self, 'swagger_fake_view', False):
+            return Document.objects.none()
+        user = self.request.user
+        
+        # Admin users see all documents
+        if user.is_staff or user.is_superuser:
+            return Document.objects.all().order_by('-created_at')
+        
+        # Get direct user ACLs
+        user_acls = ACL.objects.filter(
+            subject_type='user', 
+            subject_id=str(user.id)
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        ).values_list('document_id', flat=True)
+        
+        # Get group ACLs
+        user_groups = user.groups.values_list('id', flat=True)
+        group_acls = ACL.objects.filter(
+            subject_type='group',
+            subject_id__in=[str(group_id) for group_id in user_groups]
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        ).values_list('document_id', flat=True)
+        
+        # Combine owned documents with ACL-granted access
+        return Document.objects.filter(
+            Q(owner=user) | 
+            Q(id__in=user_acls) | 
+            Q(id__in=group_acls)
+        ).order_by('-created_at').distinct()
+    parser_classes = [MultiPartParser, FormParser]
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return DocumentCreateSerializer
+        return DocumentSerializer
+    
+    @swagger_auto_schema(
+        operation_description="List all documents with their QR codes",
+        operation_summary="List Documents",
+        responses={
+            200: openapi.Response(
+                description="List of documents",
+                schema=DocumentSerializer(many=True)
+            )
+        },
+        tags=['Documents']
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+    
+    @swagger_auto_schema(
+        operation_description="Create a new document and automatically generate a QR code",
+        operation_summary="Create Document with QR Code",
+        request_body=DocumentCreateSerializer,
+        responses={
+            201: openapi.Response(
+                description="Document created successfully with QR code",
+                schema=DocumentSerializer
+            ),
+            400: openapi.Response(
+                description="Bad request - validation error",
+                schema=OCRErrorSerializer
+            )
+        },
+        consumes=['multipart/form-data'],
+        tags=['Documents']
+    )
+    def post(self, request, *args, **kwargs):
+        """Create a new document with automatic QR code generation."""
+        try:
+            # Validate and create document
+            create_serializer = DocumentCreateSerializer(data=request.data, context={'request': request})
+            if not create_serializer.is_valid():
+                return Response(
+                    {
+                        "error": "Invalid document data",
+                        "error_code": "VALIDATION_ERROR",
+                        "details": create_serializer.errors
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Save document with provided title/html (do not rely on filename for title)
+            document = create_serializer.save()
+            logger.info(f"Created new document: {document.title} (ID: {document.id})")
+            
+            # Create initial version
+            DocumentVersion.objects.create(
+                document=document,
+                version_no=1,
+                html=document.html,
+                text=document.text,
+                author=request.user,
+                change_note="Initial document creation"
+            )
+            
+            # Log document creation
+            log_document_edit(request, document, version_no=1, changes={
+                'action': 'document_create',
+                'method': 'API_CREATE',
+                'title': document.title
+            })
+            
+            # Generate QR link (primary) to align with schema. Keep legacy QR image optional.
+            try:
+                # Create a simple unique code; in production use a secure token
+                code = f"doc-{document.id}-{int(time.time())}"
+                QRLink.objects.create(document=document, code=code, active=True, created_by=request.user if request.user and request.user.is_authenticated else None)
+                # Optionally generate legacy QR image to not break existing UI
+                try:
+                    update_document_qr_code(document)
+                    document.save()
+                except Exception:
+                    pass
+                logger.info(f"Generated QR link for document {document.id}")
+            except Exception as e:
+                logger.error(f"Failed to generate QR link for document {document.id}: {str(e)}")
+            
+            # If a file is included, store as Attachment on Document
+            upload = request.FILES.get('file') or request.data.get('file')
+            if upload:
+                try:
+                    from django.core.files.base import ContentFile
+                    data = upload.read()
+                    Attachment.objects.create(
+                        document=document,
+                        version_no=None,
+                        media_type=getattr(upload, 'content_type', 'application/octet-stream') or 'application/octet-stream',
+                        filename=upload.name,
+                        data=data,
+                        metadata={}
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not create attachment: {e}")
+
+            # Return document data
+            response_serializer = DocumentSerializer(document, context={'request': request})
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.error(f"Error creating document: {str(e)}")
+            return Response(
+                {
+                    "error": "Failed to create document",
+                    "error_code": "CREATION_ERROR",
+                    "details": {"message": str(e)}
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class DocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a specific document.
+    """
+    permission_classes = [IsAuthenticated, DocumentAccessPermission]
+    serializer_class = DocumentSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Document.objects.none()
+        user = self.request.user
+        
+        # Admin users see all documents
+        if user.is_staff or user.is_superuser:
+            return Document.objects.all()
+        
+        # Get direct user ACLs
+        user_acls = ACL.objects.filter(
+            subject_type='user', 
+            subject_id=str(user.id)
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        ).values_list('document_id', flat=True)
+        
+        # Get group ACLs
+        user_groups = user.groups.values_list('id', flat=True)
+        group_acls = ACL.objects.filter(
+            subject_type='group',
+            subject_id__in=[str(group_id) for group_id in user_groups]
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        ).values_list('document_id', flat=True)
+        
+        # Combine owned documents with ACL-granted access
+        return Document.objects.filter(
+            Q(owner=user) | 
+            Q(id__in=user_acls) | 
+            Q(id__in=group_acls)
+        ).distinct()
+    
+    @swagger_auto_schema(
+        operation_description="Retrieve a specific document with its QR code",
+        operation_summary="Get Document",
+        responses={
+            200: openapi.Response(
+                description="Document details",
+                schema=DocumentSerializer
+            ),
+            404: openapi.Response(
+                description="Document not found",
+                schema=OCRErrorSerializer
+            )
+        },
+        tags=['Documents']
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+    
+    @swagger_auto_schema(
+        operation_description="Update a document and regenerate QR code if needed",
+        operation_summary="Update Document",
+        request_body=DocumentCreateSerializer,
+        responses={
+            200: openapi.Response(
+                description="Document updated successfully",
+                schema=DocumentSerializer
+            ),
+            400: openapi.Response(
+                description="Bad request - validation error",
+                schema=OCRErrorSerializer
+            ),
+            404: openapi.Response(
+                description="Document not found",
+                schema=OCRErrorSerializer
+            )
+        },
+        tags=['Documents']
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+    
+    def get(self, request, *args, **kwargs):
+        """Override get to add audit logging."""
+        response = super().get(request, *args, **kwargs)
+        if response.status_code == 200:
+            document = self.get_object()
+            log_document_view(request, document)
+        return response
+    
+    def perform_update(self, serializer):
+        """Override to add audit logging and version tracking."""
+        document = self.get_object()
+        old_html = document.html
+        old_title = document.title
+        
+        # Save the updated document
+        updated_document = serializer.save()
+        
+        # Create new version if content changed
+        if old_html != updated_document.html:
+            new_version_no = updated_document.current_version_no + 1
+            DocumentVersion.objects.create(
+                document=updated_document,
+                version_no=new_version_no,
+                html=updated_document.html,
+                text=updated_document.text,
+                author=self.request.user,
+                change_note=f"Document updated via API"
+            )
+            updated_document.current_version_no = new_version_no
+            updated_document.save()
+            
+            # Log the edit
+            log_document_edit(self.request, updated_document, version_no=new_version_no, changes={
+                'title_changed': old_title != updated_document.title,
+                'content_changed': True,
+                'method': 'API_UPDATE'
+            })
+    
+    @swagger_auto_schema(
+        operation_description="Delete a document and its associated files",
+        operation_summary="Delete Document",
+        responses={
+            204: openapi.Response(description="Document deleted successfully"),
+            404: openapi.Response(
+                description="Document not found",
+                schema=OCRErrorSerializer
+            )
+        },
+        tags=['Documents']
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Retrieve the QR code image for a specific document",
+    operation_summary="Get Document QR Code",
+    responses={
+        200: openapi.Response(
+            description="QR code image",
+            schema=openapi.Schema(
+                type=openapi.TYPE_STRING,
+                format=openapi.FORMAT_BINARY
+            )
+        ),
+        404: openapi.Response(
+            description="Document or QR code not found",
+            schema=OCRErrorSerializer
+        )
+    },
+    produces=['image/png'],
+    tags=['Documents', 'QR Codes']
+)
+@api_view(['GET'])
+def document_qr_code(request, pk):
+    """
+    Retrieve the QR code image for a specific document.
+    
+    Returns the QR code as a PNG image that can be displayed or downloaded.
+    The QR code contains a URL pointing to the document.
+    """
+    try:
+        document = get_object_or_404(Document, pk=pk)
+
+        if not document.qr_code:
+            return Response(
+                {
+                    "error": "QR code not found for this document",
+                    "error_code": "QR_CODE_NOT_FOUND",
+                    "details": {"document_id": pk}
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Return the QR code image
+        try:
+            with open(document.qr_code.path, 'rb') as qr_file:
+                response = HttpResponse(qr_file.read(), content_type='image/png')
+                response['Content-Disposition'] = f'inline; filename="document_{pk}_qr.png"'
+                return response
+        except FileNotFoundError:
+            return Response(
+                {
+                    "error": "QR code file not found on disk",
+                    "error_code": "QR_CODE_FILE_NOT_FOUND",
+                    "details": {"document_id": pk}
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+    except Exception as e:
+        logger.error(f"Error retrieving QR code for document {pk}: {str(e)}")
+        return Response(
+            {
+                "error": "Failed to retrieve QR code",
+                "error_code": "QR_CODE_RETRIEVAL_ERROR",
+                "details": {"message": str(e)}
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Resolve a QR code to a document if active and not expired",
+    operation_summary="Resolve QR",
+    responses={
+        200: openapi.Response(
+            description="Resolved successfully",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'document_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'version_no': openapi.Schema(type=openapi.TYPE_INTEGER),
+                }
+            )
+        ),
+        404: openapi.Response(description="QR not found or inactive"),
+        410: openapi.Response(description="QR expired"),
+    },
+    tags=['QR Codes']
+)
+@api_view(['GET'])
+def resolve_qr(request, code: str):
+    try:
+        qr = QRLink.objects.filter(code=code).first()
+        if not qr or not qr.active:
+            return Response({"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND)
+        if qr.expires_at:
+            from django.utils import timezone
+            if qr.expires_at < timezone.now():
+                return Response({"error": "QR code expired"}, status=status.HTTP_410_GONE)
+        return Response({"document_id": qr.document_id, "version_no": qr.version_no}, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"QR resolve error: {str(e)}")
+        return Response({"error": "Failed to resolve"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# --- Auth & User endpoints ---
+@swagger_auto_schema(
+    method='post',
+    operation_description="Register a new user",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING),
+            'password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD),
+            'email': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['username','password']
+    ),
+    tags=['Auth']
+)
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@csrf_exempt
+def register(request):
+    from django.contrib.auth.models import User
+    username = request.data.get('username')
+    password = request.data.get('password')
+    email = request.data.get('email')
+    if not username or not password:
+        return Response({'error': 'username and password are required'}, status=400)
+    if User.objects.filter(username=username).exists():
+        return Response({'error': 'username already exists'}, status=400)
+    user = User.objects.create_user(username=username, password=password, email=email or '')
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({'id': user.id, 'username': user.username, 'email': user.email, 'token': token.key}, status=201)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get current authenticated user",
+    tags=['Auth']
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def me(request):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'authenticated': False}, status=200)
+    return Response({'authenticated': True, 'id': request.user.id, 'username': request.user.username, 'email': request.user.email}, status=200)
+
+
+@swagger_auto_schema(
+    method='post',
+    tags=['Auth'],
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING),
+            'password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD),
+        },
+        required=['username','password']
+    ))
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@csrf_exempt
+def login_view(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+    user = authenticate(request, username=username, password=password)
+    if user is None:
+        return Response({'error': 'invalid credentials'}, status=400)
+    login(request, user)
+    token, _ = Token.objects.get_or_create(user=user)
+    return Response({'id': user.id, 'username': user.username, 'email': user.email, 'token': token.key}, status=200)
+
+
+@swagger_auto_schema(method='post', tags=['Auth'])
+@api_view(['POST'])
+def logout_view(request):
+    if request.user and request.user.is_authenticated:
+        try:
+            Token.objects.filter(user=request.user).delete()
+        except Exception:
+            pass
+        logout(request)
+    return Response({'ok': True}, status=200)
+
+
+@swagger_auto_schema(method='get', tags=['Auth'])
+@api_view(['GET'])
+def list_users(request):
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    users = User.objects.all().values('id', 'username', 'email')
+    return Response(list(users), status=200)
+
+
+# --- ACL / Sharing ---
+@swagger_auto_schema(
+    method='post',
+    operation_description="Share document with a user or group by granting ACL permissions.",
+    operation_summary="Share Document with User or Group",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'subject_type': openapi.Schema(type=openapi.TYPE_STRING, description="Type of subject ('user' or 'group')"),
+            'subject_id': openapi.Schema(type=openapi.TYPE_STRING, description="ID of the user or group"),
+            'role': openapi.Schema(type=openapi.TYPE_STRING, description="Role to assign (VIEWER, EDITOR, OWNER)"),
+            'expires_at': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME, description="Optional expiry date"),
+        },
+        required=['subject_type', 'subject_id', 'role'],
+    ),
+    responses={
+        201: openapi.Response(description="Share created successfully"),
+        400: "Bad request - missing or invalid parameters",
+        403: "Forbidden - user cannot share this document",
+        404: "Document not found",
+    },
+    tags=['Sharing']
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def document_share_create(request, pk: int):
+    document = get_object_or_404(Document, pk=pk)
+    
+    # Check if user can share this document using enhanced permissions
+    from .permissions import user_can_perform_action, Action
+    if not user_can_perform_action(request.user, document, Action.SHARE):
+        return Response({'error': 'You do not have permission to share this document'}, status=403)
+    
+    subject_type = request.data.get('subject_type') or request.data.get('subjectType')
+    subject_id = request.data.get('subject_id') or request.data.get('subjectId')
+    role = request.data.get('role', 'VIEWER')
+    expires_at = request.data.get('expires_at')
+    
+    if not all([subject_type, subject_id, role]):
+        return Response({'error': 'subject_type, subject_id, and role are required'}, status=400)
+    
+    # Validate subject exists
+    if subject_type == 'user':
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            User.objects.get(id=subject_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=400)
+    elif subject_type == 'group':
+        try:
+            Group.objects.get(id=subject_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=400)
+    else:
+        return Response({'error': 'subject_type must be "user" or "group"'}, status=400)
+    
+    try:
+        # Create or update ACL entry
+        acl, created = ACL.objects.update_or_create(
+            document=document,
+            subject_type=subject_type,
+            subject_id=str(subject_id),
+            defaults={
+                'role': role,
+                'expires_at': expires_at,
+                'created_by': request.user
+            }
+        )
+        
+        # Log the sharing action
+        shared_with_name = None
+        if subject_type == 'user':
+            try:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user = User.objects.get(id=subject_id)
+                shared_with_name = user.email or user.username
+            except:
+                shared_with_name = f"User #{subject_id}"
+        elif subject_type == 'group':
+            try:
+                group = Group.objects.get(id=subject_id)
+                shared_with_name = group.name
+            except:
+                shared_with_name = f"Group #{subject_id}"
+        
+        log_document_share(request, document, shared_with=shared_with_name, role=role)
+        
+        return Response({
+            'id': str(acl.id),
+            'message': 'Document shared successfully',
+            'created': created
+        }, status=201)
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
+
+
+@swagger_auto_schema(method='get', tags=['Sharing'])
+@api_view(['GET'])
+def document_shares_list(request, pk: int):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'auth required'}, status=401)
+    document = get_object_or_404(Document, pk=pk)
+    if document.owner_id != request.user.id:
+        return Response({'error': 'forbidden'}, status=403)
+    items = ACL.objects.filter(document=document).values('id', 'subject_type', 'subject_id', 'role', 'expires_at', 'created_at')
+    # Attach username if subject_type is user
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    result = []
+    for it in items:
+        username = None
+        if it['subject_type'] == 'user':
+            try:
+                user = User.objects.filter(id=it['subject_id']).first()
+                if user:
+                    username = user.username
+            except Exception:
+                username = None
+        it['username'] = username
+        result.append(it)
+    return Response(result, status=200)
+
+
+@swagger_auto_schema(method='delete', tags=['Sharing'])
+@api_view(['DELETE'])
+def share_delete(request, share_id: str):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'auth required'}, status=401)
+    acl = get_object_or_404(ACL, id=share_id)
+    document = acl.document
+    if document.owner_id != request.user.id:
+        return Response({'error': 'forbidden'}, status=403)
+    acl.delete()
+    return Response(status=204)
+
+
+# --- Labels ---
+@swagger_auto_schema(method='get', tags=['Labels'])
+@api_view(['GET'])
+def labels_list(request):
+    items = Label.objects.all().values('id', 'name')
+    return Response(list(items), status=200)
+
+
+@swagger_auto_schema(method='post', tags=['Labels'])
+@api_view(['POST'])
+def label_create(request):
+    name = request.data.get('name')
+    if not name:
+        return Response({'error': 'name required'}, status=400)
+    lb = Label.objects.create(name=name)
+    return Response({'id': str(lb.id), 'name': lb.name}, status=201)
+
+
+@swagger_auto_schema(method='post', tags=['Labels'])
+@api_view(['POST'])
+def document_set_labels(request, pk: int):
+    doc = get_object_or_404(Document, pk=pk)
+    ids = request.data.get('label_ids') or []
+    try:
+        DocumentLabel.objects.filter(document=doc).delete()
+        for lid in ids:
+            DocumentLabel.objects.create(document=doc, label_id=lid)
+        return Response({'ok': True}, status=200)
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
+
+
+# --- Collections ---
+@swagger_auto_schema(method='get', tags=['Collections'])
+@api_view(['GET'])
+def collections_list(request):
+    items = Collection.objects.all().values('id', 'name', 'parent_id')
+    return Response(list(items), status=200)
+
+
+@swagger_auto_schema(method='post', tags=['Collections'])
+@api_view(['POST'])
+def collection_create(request):
+    name = request.data.get('name')
+    parent_id = request.data.get('parent_id')
+    if not name:
+        return Response({'error': 'name required'}, status=400)
+    coll = Collection.objects.create(name=name, parent_id=parent_id or None, owner=request.user if request.user.is_authenticated else None)
+    return Response({'id': str(coll.id), 'name': coll.name, 'parent_id': coll.parent_id}, status=201)
+
+
+@swagger_auto_schema(
+    method='delete',
+    operation_description="Delete a collection and all its sub-collections. Documents are NOT deleted, only the collection associations.",
+    operation_summary="Delete Collection",
+    responses={
+        204: "Collection deleted successfully",
+        403: "Permission denied - only collection owner can delete",
+        404: "Collection not found",
+        400: "Bad request"
+    },
+    tags=['Collections']
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def collection_delete(request, collection_id):
+    """Delete a collection and all its sub-collections."""
+    try:
+        collection = get_object_or_404(Collection, id=collection_id)
+        
+        # Check permissions - only owner or admin can delete
+        if collection.owner != request.user and not (request.user.is_staff or request.user.is_superuser):
+            return Response({'error': 'Only the collection owner can delete this collection'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get collection name for logging
+        collection_name = collection.name
+        
+        # Count sub-collections that will be deleted (for confirmation)
+        def count_descendants(coll):
+            count = 1  # Count the collection itself
+            for child in coll.children.all():
+                count += count_descendants(child)
+            return count
+        
+        total_collections_to_delete = count_descendants(collection)
+        
+        # Count documents that will be unlinked (but not deleted)
+        documents_to_unlink = set()
+        
+        def collect_document_ids(coll):
+            # Get documents directly in this collection
+            doc_ids = DocumentCollection.objects.filter(collection=coll).values_list('document_id', flat=True)
+            documents_to_unlink.update(doc_ids)
+            
+            # Recursively collect from children
+            for child in coll.children.all():
+                collect_document_ids(child)
+        
+        collect_document_ids(collection)
+        
+        # Log the deletion action before deleting
+        log_audit_event(
+            action=Action.SHARE,  # Using SHARE as closest action, could add DELETE action
+            request=request,
+            context={
+                'collection_deleted': True,
+                'collection_name': collection_name,
+                'collections_count': total_collections_to_delete,
+                'documents_unlinked': len(documents_to_unlink)
+            }
+        )
+        
+        # Delete the collection (CASCADE will delete all children and DocumentCollection entries)
+        # Documents themselves are NOT deleted due to the model relationship setup
+        collection.delete()
+        
+        return Response({
+            'message': f'Collection "{collection_name}" and {total_collections_to_delete - 1} sub-collections deleted successfully',
+            'collections_deleted': total_collections_to_delete,
+            'documents_unlinked': len(documents_to_unlink)
+        }, status=status.HTTP_204_NO_CONTENT)
+        
+    except Exception as e:
+        logger.error(f"Error deleting collection {collection_id}: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get detailed information about a collection including document count",
+    operation_summary="Get Collection Details",
+    responses={200: "Collection details"},
+    tags=['Collections']
+)
+@api_view(['GET'])
+def collection_detail(request, collection_id):
+    """Get detailed collection information."""
+    try:
+        collection = get_object_or_404(Collection, id=collection_id)
+        
+        # Count documents in this collection
+        document_count = DocumentCollection.objects.filter(collection=collection).count()
+        
+        # Count sub-collections
+        def count_descendants(coll):
+            count = 0
+            for child in coll.children.all():
+                count += 1 + count_descendants(child)
+            return count
+        
+        subcollection_count = count_descendants(collection)
+        
+        return Response({
+            'id': str(collection.id),
+            'name': collection.name,
+            'parent_id': str(collection.parent_id) if collection.parent_id else None,
+            'owner_id': collection.owner_id,
+            'created_at': collection.created_at,
+            'document_count': document_count,
+            'subcollection_count': subcollection_count
+        })
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(method='post', tags=['Collections'])
+@api_view(['POST'])
+def document_set_collections(request, pk: int):
+    doc = get_object_or_404(Document, pk=pk)
+    ids = request.data.get('collection_ids') or []
+    try:
+        DocumentCollection.objects.filter(document=doc).delete()
+        for cid in ids:
+            DocumentCollection.objects.create(document=doc, collection_id=cid)
+        return Response({'ok': True}, status=200)
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
+
+
+# --- Search ---
+def _permission_filter_queryset(request):
+    user = request.user
+    if not user or not user.is_authenticated:
+        return Document.objects.none()
+    
+    # Admin users see all documents
+    if user.is_staff or user.is_superuser:
+        return Document.objects.all()
+    
+    # Get direct user ACLs
+    user_acls = ACL.objects.filter(
+        subject_type='user', 
+        subject_id=str(user.id)
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+    ).values_list('document_id', flat=True)
+    
+    # Get group ACLs
+    user_groups = user.groups.values_list('id', flat=True)
+    group_acls = ACL.objects.filter(
+        subject_type='group',
+        subject_id__in=[str(group_id) for group_id in user_groups]
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+    ).values_list('document_id', flat=True)
+    
+    # Combine owned documents with ACL-granted access
+    return Document.objects.filter(
+        Q(owner=user) | 
+        Q(id__in=user_acls) | 
+        Q(id__in=group_acls)
+    ).distinct()
+
+
+@swagger_auto_schema(
+    method='get',
+    tags=['Search'],
+    manual_parameters=[
+        openapi.Parameter('q', openapi.IN_QUERY, description='Title contains (standard search)', type=openapi.TYPE_STRING),
+        openapi.Parameter('label_ids', openapi.IN_QUERY, description='Filter by label id (repeatable)', type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING))
+    ]
+)
+@api_view(['GET'])
+def search_standard(request):
+    qs = _permission_filter_queryset(request)
+    q = request.GET.get('q', '').strip()
+    label_ids = request.GET.getlist('label_ids') or request.GET.get('label_ids', '')
+    if isinstance(label_ids, str) and label_ids:
+        label_ids = [x for x in re.split(r'[ ,]+', label_ids) if x]
+    if q:
+        qs = qs.filter(title__icontains=q)
+    if label_ids:
+        qs = qs.filter(documentlabel__label_id__in=label_ids).distinct()
+    data = DocumentSerializer(qs.order_by('-updated_at'), many=True, context={'request': request}).data
+    return Response(data, status=200)
+
+
+@swagger_auto_schema(
+    method='get',
+    tags=['Search'],
+    manual_parameters=[
+        openapi.Parameter('q', openapi.IN_QUERY, description='Deep search query (full-text)', type=openapi.TYPE_STRING, required=True)
+    ]
+)
+@api_view(['GET'])
+def search_deep(request):
+    qs = _permission_filter_queryset(request)
+    q = request.GET.get('q', '').strip()
+    if not q:
+        return Response({'error': 'q required'}, status=400)
+    try:
+        from django.db import connection
+        if connection.vendor == 'postgresql':
+            try:
+                query = SearchQuery(q, config='english')
+                qs2 = qs.filter(search_tsv__search=query)
+                if not qs2.exists():
+                    qs2 = qs.filter(search_tsv__search=q)
+                qs = qs2.order_by('-updated_at')
+            except Exception as e:
+                logger.warning(f"FTS search fallback due to error: {e}")
+                qs = qs.filter(text__icontains=q).order_by('-updated_at')
+        else:
+            qs = qs.filter(text__icontains=q).order_by('-updated_at')
+    except Exception as e:
+        logger.error(f"Deep search error: {e}")
+        qs = qs.filter(text__icontains=q).order_by('-updated_at')
+    data = DocumentSerializer(qs, many=True, context={'request': request}).data
+    return Response(data, status=200)
+
+
+@swagger_auto_schema(method='post', tags=['Search'])
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def search_qr(request):
+    if 'file' not in request.FILES:
+        return Response({'error': 'file required'}, status=400)
+    f = request.FILES['file']
+    try:
+        data = np.frombuffer(f.read(), np.uint8)
+        img = cv2.imdecode(data, cv2.IMREAD_COLOR)
+        detector = cv2.QRCodeDetector()
+        val, points, _ = detector.detectAndDecode(img)
+        if not val:
+            return Response({'error': 'QR not detected'}, status=400)
+        code = val
+        m = re.search(r"/qr/resolve/([^/]+)/?", val)
+        if m:
+            code = m.group(1)
+        qr = QRLink.objects.filter(code=code, active=True).first()
+        if not qr:
+            return Response({'error': 'QR not found'}, status=404)
+        # Permission check
+        doc_qs = _permission_filter_queryset(request).filter(id=qr.document_id)
+        if not doc_qs.exists():
+            return Response({'error': 'forbidden'}, status=403)
+        data = DocumentSerializer(doc_qs.first(), context={'request': request}).data
+        return Response({'document': data}, status=200)
+    except Exception as e:
+        logger.error(f"QR search error: {e}")
+        return Response({'error': 'failed to process QR'}, status=500)
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get information about QR code generation capabilities",
+    operation_summary="QR Code System Information",
+    responses={
+        200: openapi.Response(
+            description="QR code system information",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'qr_code_generator': openapi.Schema(type=openapi.TYPE_STRING),
+                    'supported_formats': openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(type=openapi.TYPE_STRING)
+                    ),
+                    'default_size': openapi.Schema(type=openapi.TYPE_STRING),
+                    'features': openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(type=openapi.TYPE_STRING)
+                    )
+                }
+            )
+        )
+    },
+    tags=['QR Codes']
+)
+@api_view(['GET'])
+def qr_code_info(request):
+    """
+    Get information about the QR code generation system.
+    """
+    try:
+        qr_info = get_qr_code_info()
+        return Response(qr_info, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Error getting QR code info: {str(e)}")
+        return Response(
+            {
+                "error": "Failed to get QR code information",
+                "error_code": "QR_INFO_ERROR",
+                "details": {"message": str(e)}
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def attachment_download(request, attachment_id):
+    att = get_object_or_404(Attachment, id=attachment_id)
+    try:
+        # Return binary data stored in DB as file
+        response = HttpResponse(bytes(att.data), content_type=att.media_type or 'application/octet-stream')
+        response['Content-Disposition'] = f'inline; filename="{att.filename}"'
+        return response
+    except Exception as e:
+        logger.error(f"Attachment download error: {e}")
+        return Response({'error': 'failed to download'}, status=500)
+
+
+# ============ GROUP MANAGEMENT ENDPOINTS ============
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="List all groups the user has access to",
+    operation_summary="List Groups",
+    responses={200: GroupSerializer(many=True)},
+    tags=['Groups']
+)
+@swagger_auto_schema(
+    method='post',
+    operation_description="Create a new group",
+    operation_summary="Create Group",
+    request_body=GroupSerializer,
+    responses={201: GroupSerializer, 400: "Bad request"},
+    tags=['Groups']
+)
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def groups_list_create(request):
+    """List all groups or create a new group."""
+    if request.method == 'GET':
+        # Admin users see all groups, regular users see only their groups
+        if request.user.is_staff or request.user.is_superuser:
+            groups = Group.objects.all()
+        else:
+            groups = request.user.groups.all()
+        
+        serializer = GroupSerializer(groups, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = GroupSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            group = serializer.save()
+            # Add creator as a member
+            request.user.groups.add(group)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get group details",
+    operation_summary="Get Group",
+    responses={200: GroupSerializer},
+    tags=['Groups']
+)
+@swagger_auto_schema(
+    method='put',
+    operation_description="Update group details",
+    operation_summary="Update Group",
+    request_body=GroupSerializer,
+    responses={200: GroupSerializer},
+    tags=['Groups']
+)
+@swagger_auto_schema(
+    method='delete',
+    operation_description="Delete group",
+    operation_summary="Delete Group",
+    responses={204: "No content"},
+    tags=['Groups']
+)
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def group_detail(request, group_id):
+    """Get, update, or delete a group."""
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if user has access to this group
+    is_member = request.user.groups.filter(id=group_id).exists()
+    
+    if not (is_member or request.user.is_staff):
+        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'GET':
+        serializer = GroupSerializer(group, context={'request': request})
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        # Allow group members to update group details, not just staff
+        if not (is_member or request.user.is_staff):
+            return Response({'error': 'Only group members or staff can update groups'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = GroupSerializer(group, data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        # Only staff can delete groups (this is more restrictive for safety)
+        if not request.user.is_staff:
+            return Response({'error': 'Only staff can delete groups'}, status=status.HTTP_403_FORBIDDEN)
+        
+        group.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="List group members",
+    operation_summary="List Group Members",
+    responses={200: UserGroupSerializer(many=True)},
+    tags=['Groups']
+)
+@swagger_auto_schema(
+    method='post',
+    operation_description="Add users to group",
+    operation_summary="Add Group Members",
+    request_body=GroupMembershipSerializer,
+    responses={200: "Members added successfully"},
+    tags=['Groups']
+)
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def group_members(request, group_id):
+    """List or add group members."""
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check access
+    is_member = request.user.groups.filter(id=group_id).exists()
+    
+    if not (is_member or request.user.is_staff):
+        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'GET':
+        members = group.user_set.all()
+        serializer = UserGroupSerializer(members, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        # Allow group members to add other members, not just staff
+        if not (is_member or request.user.is_staff):
+            return Response({'error': 'Only group members or staff can add members'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = GroupMembershipSerializer(data=request.data)
+        if serializer.is_valid():
+            user_ids = serializer.validated_data['user_ids']
+            added_count = 0
+            
+            for user_id in user_ids:
+                try:
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    user = User.objects.get(id=user_id)
+                    group.user_set.add(user)
+                    added_count += 1
+                except User.DoesNotExist:
+                    continue
+            
+            return Response({
+                'message': f'Added {added_count} members to group',
+                'added_count': added_count
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
+    method='delete',
+    operation_description="Remove user from group",
+    operation_summary="Remove Group Member",
+    responses={204: "No content"},
+    tags=['Groups']
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def group_member_remove(request, group_id, user_id):
+    """Remove a user from a group."""
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if requesting user can manage this group
+    is_member = request.user.groups.filter(id=group_id).exists()
+    if not (is_member or request.user.is_staff):
+        return Response({'error': 'Only group members or staff can remove members'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.get(id=user_id)
+        group.user_set.remove(user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# ============ SHARE LINK ENDPOINTS ============
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="List share links for a document",
+    operation_summary="List Document Share Links",
+    responses={200: ShareLinkSerializer(many=True)},
+    tags=['Share Links']
+)
+@swagger_auto_schema(
+    method='post',
+    operation_description="Create a share link for a document",
+    operation_summary="Create Share Link",
+    request_body=ShareLinkCreateSerializer,
+    responses={201: ShareLinkSerializer},
+    tags=['Share Links']
+)
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated, DocumentAccessPermission])
+def document_share_links(request, document_id):
+    """List or create share links for a document."""
+    document = get_object_or_404(Document, id=document_id)
+    
+    # Check if user can share this document
+    from .permissions import user_can_perform_action, Action
+    if not user_can_perform_action(request.user, document, Action.SHARE):
+        return Response({'error': 'You do not have permission to share this document'}, 
+                       status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'GET':
+        share_links = ShareLink.objects.filter(document=document)
+        serializer = ShareLinkSerializer(share_links, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = ShareLinkCreateSerializer(
+            data=request.data, 
+            context={'request': request, 'document': document}
+        )
+        if serializer.is_valid():
+            share_link = serializer.save()
+            
+            # Create ACL entry for the share link
+            ACL.objects.create(
+                document=document,
+                subject_type='share_link',
+                subject_id=str(share_link.id),
+                role=share_link.role,
+                expires_at=share_link.expires_at,
+                created_by=request.user
+            )
+            
+            response_serializer = ShareLinkSerializer(share_link)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
+    method='delete',
+    operation_description="Revoke a share link",
+    operation_summary="Revoke Share Link",
+    responses={204: "No content"},
+    tags=['Share Links']
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def share_link_revoke(request, share_link_id):
+    """Revoke a share link."""
+    share_link = get_object_or_404(ShareLink, id=share_link_id)
+    
+    # Check if user can revoke this share link
+    from .permissions import user_can_perform_action, Action
+    if not user_can_perform_action(request.user, share_link.document, Action.SHARE):
+        return Response({'error': 'You do not have permission to revoke this share link'}, 
+                       status=status.HTTP_403_FORBIDDEN)
+    
+    # Mark as revoked
+    from django.utils import timezone
+    share_link.revoked_at = timezone.now()
+    share_link.save()
+    
+    # Remove corresponding ACL entry
+    ACL.objects.filter(
+        document=share_link.document,
+        subject_type='share_link',
+        subject_id=str(share_link.id)
+    ).delete()
+    
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Access a document via share link token",
+    operation_summary="Access Document via Share Link",
+    manual_parameters=[
+        openapi.Parameter('token', openapi.IN_PATH, description="Share link token", type=openapi.TYPE_STRING, required=True),
+    ],
+    responses={200: DocumentSerializer, 404: "Share link not found or expired"},
+    tags=['Share Links']
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def share_link_access(request, token):
+    """Access a document via share link token."""
+    try:
+        from django.utils import timezone
+        
+        share_link = ShareLink.objects.get(
+            token=token,
+            revoked_at__isnull=True
+        )
+        
+        # Check if expired
+        if share_link.expires_at and share_link.expires_at < timezone.now():
+            return Response({'error': 'Share link has expired'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Return document data with limited access based on share link role
+        document = share_link.document
+        serializer = DocumentSerializer(document, context={'request': request})
+        
+        return Response({
+            'document': serializer.data,
+            'access_role': share_link.role,
+            'share_link_id': share_link.id
+        })
+        
+    except ShareLink.DoesNotExist:
+        return Response({'error': 'Share link not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# === AUDIT LOGGING AND VERSION HISTORY ENDPOINTS ===
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get audit log for a document (requires VIEW access or higher)",
+    responses={
+        200: AuditLogSerializer(many=True),
+        403: "Access denied",
+        404: "Document not found"
+    }
+)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def document_audit_log(request, document_id):
+    """Get audit log entries for a specific document."""
+    try:
+        document = get_object_or_404(Document, id=document_id)
+        
+        # Check permissions using our custom permission class
+        permission = DocumentAccessPermission()
+        if not permission.has_object_permission(request, None, document):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get audit logs for this document, ordered by most recent first
+        audit_logs = AuditLog.objects.filter(document=document).order_by('-ts')
+        
+        # Add pagination if needed
+        page_size = int(request.GET.get('page_size', 50))
+        page = int(request.GET.get('page', 1))
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        paginated_logs = audit_logs[start:end]
+        serializer = AuditLogSerializer(paginated_logs, many=True)
+        
+        # Log this audit log view
+        log_audit_event(
+            action=Action.VIEW,
+            request=request,
+            document=document,
+            context={'audit_log_accessed': True}
+        )
+        
+        return Response({
+            'results': serializer.data,
+            'count': audit_logs.count(),
+            'page': page,
+            'page_size': page_size
+        })
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get version history for a document (requires VIEW access or higher)",
+    responses={
+        200: DocumentVersionListSerializer(many=True),
+        403: "Access denied",
+        404: "Document not found"
+    }
+)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def document_version_history(request, document_id):
+    """Get version history for a specific document."""
+    try:
+        document = get_object_or_404(Document, id=document_id)
+        
+        # Check permissions
+        permission = DocumentAccessPermission()
+        if not permission.has_object_permission(request, None, document):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get versions ordered by version number (newest first)
+        versions = DocumentVersion.objects.filter(document=document).order_by('-version_no')
+        serializer = DocumentVersionListSerializer(versions, many=True)
+        
+        # Log this version history view
+        log_audit_event(
+            action=Action.VIEW,
+            request=request,
+            document=document,
+            context={'version_history_accessed': True}
+        )
+        
+        return Response(serializer.data)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get specific document version content (requires VIEW access or higher)",
+    responses={
+        200: DocumentVersionSerializer,
+        403: "Access denied",
+        404: "Document or version not found"
+    }
+)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def document_version_detail(request, document_id, version_id):
+    """Get detailed content for a specific document version."""
+    try:
+        document = get_object_or_404(Document, id=document_id)
+        version = get_object_or_404(DocumentVersion, id=version_id, document=document)
+        
+        # Check permissions
+        permission = DocumentAccessPermission()
+        if not permission.has_object_permission(request, None, document):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = DocumentVersionSerializer(version)
+        
+        # Log this version view
+        log_audit_event(
+            action=Action.VIEW,
+            request=request,
+            document=document,
+            version_no=version.version_no,
+            context={'version_detail_accessed': True}
+        )
+        
+        return Response(serializer.data)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Restore document to a previous version (requires EDIT access or higher)",
+    request_body=DocumentRestoreSerializer,
+    responses={
+        200: DocumentSerializer,
+        403: "Access denied - requires EDIT permission",
+        404: "Document or version not found",
+        400: "Invalid version ID"
+    }
+)
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def document_restore_version(request, document_id):
+    """Restore a document to a previous version."""
+    try:
+        document = get_object_or_404(Document, id=document_id)
+        
+        # Check permissions - requires EDIT access
+        permission = DocumentAccessPermission()
+        if not permission.has_object_permission(request, None, document):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Additional check for EDIT permission specifically
+        if not user_can_perform_action(request.user, document, Action.EDIT):
+            return Response({'error': 'Edit permission required to restore versions'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Validate request data
+        serializer = DocumentRestoreSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        version_id = serializer.validated_data['version_id']
+        change_note = serializer.validated_data.get('change_note', 'Restored from previous version')
+        
+        # Get the version to restore from
+        restore_version = get_object_or_404(DocumentVersion, id=version_id, document=document)
+        
+        # Create a new version with the restored content
+        new_version_no = document.current_version_no + 1
+        
+        # Create new version entry
+        new_version = DocumentVersion.objects.create(
+            document=document,
+            version_no=new_version_no,
+            html=restore_version.html,
+            text=restore_version.text,
+            author=request.user,
+            change_note=f"{change_note} (restored from version {restore_version.version_no})",
+            hash=restore_version.hash  # Could generate new hash if needed
+        )
+        
+        # Update document with restored content
+        document.html = restore_version.html
+        document.text = restore_version.text
+        document.current_version_no = new_version_no
+        document.save()
+        
+        # Log the restoration
+        log_document_edit(request, document, version_no=new_version_no, changes={
+            'action': 'version_restore',
+            'restored_from_version': restore_version.version_no,
+            'change_note': change_note
+        })
+        
+        # Return updated document
+        doc_serializer = DocumentSerializer(document, context={'request': request})
+        return Response(doc_serializer.data)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

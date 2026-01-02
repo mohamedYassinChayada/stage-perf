@@ -1,0 +1,245 @@
+---
+alwaysApply: true
+---
+# Cursor Project Rules: Data Model Source of Truth
+
+Purpose
+- The following PlantUML schema is the single source of truth for the project's data model.
+- All database migrations, ORM models, API DTOs, and queries must align with this schema.
+- We are keeping the original Attachment entity as a separate table. Do not embed attachments into Document.
+
+General Rules
+- Target database: PostgreSQL.
+- Types map directly:
+  - uuid -> UUID
+  - text -> TEXT
+  - boolean -> BOOLEAN
+  - int -> INTEGER
+  - timestamptz -> TIMESTAMPTZ
+  - tsvector -> TSVECTOR
+  - jsonb -> JSONB
+  - bytea -> BYTEA
+  - inet -> INET
+- Enums (Role, Action, RelationType) must be enforced (prefer PostgreSQL ENUMs or validated as CHECK constraints in code/migrations).
+- Maintain all UNIQUE and composite primary key constraints as specified in comments.
+- Relationship semantics:
+  - Many-to-many join tables (UserGroup, DocumentLabel, DocumentCollection) use composite PKs as defined.
+  - DocumentVersion must be unique per (document_id, version_no).
+  - Attachment belongs to Document and can optionally reference a specific version_no of that document.
+- Deletion behavior:
+  - When deleting a Document, cascade delete related DocumentVersion, Attachment, DocumentLabel, DocumentCollection, DocumentRelation (both directions), QRLink, ShareLink, ACL.
+  - Do not auto-delete User on related deletions. Use RESTRICT/NO ACTION for User references unless explicitly required.
+- Full-text search:
+  - search_tsv columns exist on Document and DocumentVersion. Keep them updated on writes (triggers or application logic).
+- Do not rename fields or tables without an explicit migration plan and approval.
+
+How to use these rules in Cursor
+- When generating code (migrations/ORM/models), reference the PlantUML below.
+- If any ambiguity arises (e.g., missing ON DELETE behavior for a specific FK), ask before assuming defaults.
+- Keep Attachment as a separate entity for scans/PDFs as modeled below.
+
+Schema (PlantUML)
+```plantuml
+@startuml
+hide circle
+skinparam classAttributeIconSize 0
+
+' Enums
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum Action {
+  VIEW
+  EDIT
+  SHARE
+  EXPORT
+}
+
+enum RelationType {
+  RELATED
+  REVISION_OF
+  REFERENCES
+}
+
+' Core auth
+entity User {
+  id: uuid <<PK>>
+  email: text <<UNIQUE>>
+  display_name: text
+  is_admin: boolean
+  created_at: timestamptz
+}
+
+entity Group {
+  id: uuid <<PK>>
+  name: text
+  created_by: uuid  ' -> User.id
+  created_at: timestamptz
+}
+
+entity UserGroup {
+  user_id: uuid  ' -> User.id
+  group_id: uuid ' -> Group.id
+  -- PK: (user_id, group_id)
+}
+
+' Documents
+entity Document {
+  id: uuid <<PK>>
+  title: text
+  html: text
+  text: text
+  search_tsv: tsvector
+  owner_id: uuid  ' -> User.id
+  current_version_no: int
+  created_at: timestamptz
+  updated_at: timestamptz
+}
+
+entity DocumentVersion {
+  id: uuid <<PK>>
+  document_id: uuid  ' -> Document.id
+  version_no: int
+  html: text
+  text: text
+  search_tsv: tsvector
+  author_id: uuid  ' -> User.id
+  change_note: text
+  hash: text
+  created_at: timestamptz
+  -- UNIQUE: (document_id, version_no)
+}
+
+' Organization
+entity Label {
+  id: uuid <<PK>>
+  name: text <<UNIQUE>>
+}
+
+entity DocumentLabel {
+  document_id: uuid  ' -> Document.id
+  label_id: uuid     ' -> Label.id
+  -- PK: (document_id, label_id)
+}
+
+entity Collection {
+  id: uuid <<PK>>
+  name: text
+  parent_id: uuid <<NULLABLE>>  ' -> Collection.id
+  owner_id: uuid  ' -> User.id
+  created_at: timestamptz
+}
+
+entity DocumentCollection {
+  document_id: uuid   ' -> Document.id
+  collection_id: uuid ' -> Collection.id
+  -- PK: (document_id, collection_id)
+}
+
+entity DocumentRelation {
+  id: uuid <<PK>>
+  from_document_id: uuid ' -> Document.id
+  to_document_id: uuid   ' -> Document.id
+  type: RelationType
+}
+
+' Attachments (images from scans, PDFs, etc.)
+entity Attachment {
+  id: uuid <<PK>>
+  document_id: uuid  ' -> Document.id
+  version_no: int <<NULLABLE>>  ' link to DocumentVersion.version_no
+  media_type: text
+  filename: text
+  data: bytea
+  metadata: jsonb
+  created_at: timestamptz
+}
+
+' ACL / sharing
+entity ACL {
+  id: uuid <<PK>>
+  document_id: uuid  ' -> Document.id
+  subject_type: text  ' 'user' | 'group' | 'share_link'
+  subject_id: uuid
+  role: Role
+  expires_at: timestamptz <<NULLABLE>>
+  created_by: uuid  ' -> User.id
+  created_at: timestamptz
+}
+
+entity ShareLink {
+  id: uuid <<PK>>
+  document_id: uuid  ' -> Document.id
+  role: Role
+  token: text <<UNIQUE>>
+  expires_at: timestamptz <<NULLABLE>>
+  revoked_at: timestamptz <<NULLABLE>>
+  created_by: uuid  ' -> User.id
+  created_at: timestamptz
+}
+
+' QR codes (scan to resolve a doc/version)
+entity QRLink {
+  id: uuid <<PK>>
+  document_id: uuid  ' -> Document.id
+  version_no: int <<NULLABLE>>
+  code: text <<UNIQUE>>
+  sig: text <<NULLABLE>>
+  expires_at: timestamptz <<NULLABLE>>
+  active: boolean
+  created_by: uuid  ' -> User.id
+  created_at: timestamptz
+}
+
+' Auditing
+entity AuditLog {
+  id: uuid <<PK>>
+  actor_user_id: uuid <<NULLABLE>> ' -> User.id
+  action: Action
+  document_id: uuid <<NULLABLE>>   ' -> Document.id
+  version_no: int <<NULLABLE>>
+  ts: timestamptz
+  ip: inet <<NULLABLE>>
+  user_agent: text <<NULLABLE>>
+  context: jsonb <<NULLABLE>>
+  share_link_id: uuid <<NULLABLE>> ' -> ShareLink.id
+  qr_link_id: uuid <<NULLABLE>>    ' -> QRLink.id
+}
+
+' Relationships
+User "1" o-- "many" Document : owner_id
+Document "1" o-- "many" DocumentVersion
+User "1" o-- "many" DocumentVersion : author_id
+Document "1" o-- "many" Attachment
+Document "many" -- "many" Label : DocumentLabel
+Document "many" -- "many" Collection : DocumentCollection
+Collection "1" o-- "many" Collection : parent_id
+Document "1" o-- "many" DocumentRelation : from
+Document "1" o-- "many" DocumentRelation : to
+Document "1" o-- "many" QRLink
+Document "1" o-- "many" ShareLink
+Document "1" o-- "many" ACL
+User "many" -- "many" Group : UserGroup
+
+' Polymorphic ACL subjects
+ACL ..> User : subject_type='user'
+ACL ..> Group : subject_type='group'
+ACL ..> ShareLink : subject_type='share_link'
+
+' Audit references
+AuditLog ..> User
+AuditLog ..> Document
+AuditLog ..> ShareLink
+AuditLog ..> QRLink
+@enduml
+```
+
+Implementation Notes
+- Whenever you add or modify fields in code, update this file and generate migrations to match.
+- Keep API surface consistent with types and constraints here (e.g., enums, unique keys).
+- For Attachment:
+  - media_type accepts typical MIME types (e.g., application/pdf, image/png, image/jpeg, image/tiff).
+  - version_no is optional; when present, it must match an existing DocumentVersion for the same document.

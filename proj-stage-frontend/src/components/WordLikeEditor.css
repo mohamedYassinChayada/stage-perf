@@ -1,0 +1,175 @@
+.word-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #f5f5f5;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.document-title-container {
+  margin-bottom: 15px;
+}
+
+.document-title-input {
+  width: 100%;
+  padding: 10px;
+  font-size: 18px;
+  font-weight: bold;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+}
+
+.toolbar-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.editor-toolbar button {
+  padding: 8px 16px;
+  background-color: #0078d4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.2s ease;
+}
+
+.editor-toolbar button:hover {
+  background-color: #106ebe;
+}
+
+.editor-toolbar button.active {
+  background-color: #005a9e;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.editor-toolbar span.page-count {
+  font-size: 14px;
+  color: #555;
+  background-color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+/* Icons for buttons */
+.page-break-icon::before {
+  content: "⊣⊢";
+  font-weight: bold;
+}
+
+.header-footer-icon::before {
+  content: "⊤⊥";
+  font-weight: bold;
+}
+
+.save-icon::before {
+  content: "💾";
+}
+
+.word-icon::before {
+  content: "W";
+  font-weight: bold;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.print-icon::before {
+  content: "🖨️";
+}
+
+/* Override TinyMCE default styles */
+.tox .tox-editor-container {
+  border-radius: 0 0 4px 4px;
+}
+
+.tox .tox-toolbar__primary {
+  background-color: #f8f8f8 !important;
+}
+
+.tox .tox-tbtn {
+  border-radius: 3px !important;
+}
+
+.tox .tox-tbtn:hover {
+  background-color: #e8e8e8 !important;
+}
+
+/* Print-specific styles */
+@media print {
+  .editor-toolbar,
+  .document-title-container {
+    display: none;
+  }
+  
+  .word-editor-container {
+    padding: 0;
+    background-color: white;
+    box-shadow: none;
+  }
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .word-editor-container {
+    padding: 10px;
+  }
+  
+  .editor-toolbar {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .toolbar-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+/* Hide TinyMCE promotional elements */
+.tox-promotion,
+.tox-promotion-link,
+.tox-statusbar__branding,
+.tox-notification--in .tox-notification__body a[href*="tiny.cloud"],
+.tox-notification--in .tox-notification__body a[href*="tinymce.com"],
+a[href*="tiny.cloud"],
+a[href*="tinymce.com"],
+.tox-statusbar a[href*="tiny.cloud"],
+.tox-statusbar a[href*="tinymce.com"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Hide trial notification banners */
+.tox-notification--in,
+.tox-notification {
+  display: none !important;
+}
+
+/* Hide any remaining branding in the status bar */
+.tox-statusbar__right-container a {
+  display: none !important;
+}

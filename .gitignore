@@ -1,0 +1,226 @@
+# ----------------------------------------------------------------------
+# General / OS-level ignores (temps, caches, thumbs)
+# ----------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.swp
+*~
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# ----------------------------------------------------------------------
+# Python/Django ignores (caches, builds, envs, migrations if unused)
+# ----------------------------------------------------------------------
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff
+*.log
+local_settings.py
+db.sqlite3
+/media/
+/staticfiles/
+
+# Flask/Scrapy/Sphinx (if applicable, but common in Python)
+instance/
+.webassets-cache
+.scrapy
+docs/_build/
+
+# PyBuilder/Jupyter/IPython
+.pybuilder/
+target/
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# Other Python tools
+Pipfile.lock  # Optional: include if not collaborating cross-platform
+poetry.lock   # Optional: similar reasoning
+pdm.lock      # Optional
+.pdm.toml
+__pypackages__/
+celerybeat-schedule
+celerybeat.pid
+*.sage.py
+.spyderproject
+.spyproject
+.ropeproject
+/site
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+poetry.toml
+.ruff_cache/
+pyrightconfig.json
+
+# ----------------------------------------------------------------------
+# Node.js / React / Vite / TS ignores (packages, builds, caches)
+# ----------------------------------------------------------------------
+# Logs
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+
+# Dependency directories
+node_modules/
+jspm_packages/
+bower_components
+web_modules/
+
+# Builds and outputs (covers CRA's build/, Vite's dist/)
+build/
+dist/
+dist-ssr/
+.next
+out
+.nuxt
+.svelte-kit
+.vuepress/dist
+.temp
+.docusaurus
+.serverless/
+.webpack/
+.fusebox/
+.dynamodb/
+.parcel-cache
+
+# TypeScript/Vite caches
+*.tsbuildinfo
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Optional npm/eslint/stylelint caches
+.npm
+.eslintcache
+.stylelintcache
+
+# Microbundle/rpt2 caches
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# REPL history
+.node_repl_history
+
+# npm pack outputs
+*.tgz
+
+# Yarn integrity/v2
+.yarn-integrity
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Env files (secrets)
+.env*
+!.env.example  # If you have examples, keep them
+
+# Coverage/testing
+coverage
+*.lcov
+.nyc_output
+.grunt
+.lock-wscript
+lib-cov
+
+# React-specific extras
+.DS_*
+**/*.backup.*
+**/*.back.*
+psd
+thumb
+sketch
+
+# Vite-specific (additional if needed)
+.vitepress/cache
+
+# TernJS
+.tern-port
+
+# VSCode testing
+.vscode-test
+
+# End of unified .gitignore
