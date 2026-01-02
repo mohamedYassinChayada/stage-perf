@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(../my_venv/Scripts/pip.exe install:*)",
+      "Bash(../my_venv/Scripts/pip.exe list:*)",
+      "Bash(../my_venv/Scripts/python.exe:*)",
+      "Bash(my_venv/Scripts/python.exe:*)",
+      "Bash(my_venv/Scripts/pip.exe show:*)",
+      "Bash(timeout 3 ../my_venv/Scripts/python.exe manage.py runserver:*)"
+    ]
+  }
+}
