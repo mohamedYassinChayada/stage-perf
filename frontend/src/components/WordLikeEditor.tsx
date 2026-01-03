@@ -676,7 +676,7 @@ const WordLikeEditor = React.forwardRef<WordLikeEditorHandle, WordLikeEditorProp
       window.tinymce.init({
         selector: '#editor',
         license_key: 'gpl',
-        height: 800,
+        height: 1200,
         branding: false,
         promotion: false,
         menubar: props.readOnly ? false : 'file edit view insert format tools table help',
@@ -702,17 +702,65 @@ const WordLikeEditor = React.forwardRef<WordLikeEditorHandle, WordLikeEditorProp
           'Times New Roman=times new roman,times;' +
           'Verdana=verdana,geneva;',
         content_style: `
-          body { font-family:'Calibri','Arial',sans-serif; font-size:11pt; line-height:1.15; margin:0; padding:20px; background:#f5f5f5; }
-          .word-page { width:21cm; height:29.7cm; margin:0 auto 1cm auto; background:#fff; position:relative; box-sizing:border-box; overflow:hidden; page-break-after:always; }
-          .word-page + .word-page { margin-top:1cm; border-top:2px solid #f0f0f0; padding-top:10px; }
-          .word-page-content { width:calc(21cm - 5.08cm); height:calc(29.7cm - 5.08cm); margin:2.54cm; padding:0; overflow:hidden; box-sizing:border-box; position:relative; }
-          .word-page-content p { margin:0 0 6pt 0; min-height:1.2em; line-height:1.15; }
-          .word-page-content p:empty::after { content:''; display:inline-block; width:1px; height:1.2em; visibility:hidden; }
-          .mce-content-body { background:transparent!important; padding:0!important; margin:0!important; min-height:100vh!important; }
-          [data-page-break="true"] { border-top:1px dashed #ccc; height:0; margin:8px 0; }
+          body { 
+            font-family:'Calibri','Arial',sans-serif; 
+            font-size:11pt; 
+            line-height:1.15; 
+            margin:0; 
+            padding:40px 20px; 
+            background:#e0e0e0 !important;
+            min-height: 100vh;
+          }
+          .mce-content-body { 
+            background:#e0e0e0 !important; 
+            padding:40px 20px !important; 
+            margin:0 !important; 
+            min-height:100vh !important; 
+          }
+          .word-page { 
+            width:21cm; 
+            height:29.7cm; 
+            margin:0 auto 20px auto; 
+            background:#fff; 
+            position:relative; 
+            box-sizing:border-box; 
+            overflow:hidden; 
+            page-break-after:always; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border: 1px solid #ccc;
+          }
+          .word-page + .word-page { 
+            margin-top:20px; 
+          }
+          .word-page-content { 
+            width:calc(21cm - 5.08cm); 
+            height:calc(29.7cm - 5.08cm); 
+            margin:2.54cm; 
+            padding:0; 
+            overflow:hidden; 
+            box-sizing:border-box; 
+            position:relative; 
+          }
+          .word-page-content p { 
+            margin:0 0 6pt 0; 
+            min-height:1.2em; 
+            line-height:1.15; 
+          }
+          .word-page-content p:empty::after { 
+            content:''; 
+            display:inline-block; 
+            width:1px; 
+            height:1.2em; 
+            visibility:hidden; 
+          }
+          [data-page-break="true"] { 
+            border-top:1px dashed #ccc; 
+            height:0; 
+            margin:8px 0; 
+          }
           @media print {
             body { background:#fff!important; margin:0!important; padding:0!important; }
-            .word-page { width:21cm!important; height:29.7cm!important; margin:0!important; box-shadow:none!important; page-break-after:always; }
+            .word-page { width:21cm!important; height:29.7cm!important; margin:0!important; box-shadow:none!important; page-break-after:always; border:none!important; }
             .word-page:last-child { page-break-after:auto; }
             .word-page-content { width:calc(21cm - 5.08cm)!important; height:calc(29.7cm - 5.08cm)!important; margin:2.54cm!important; }
           }
@@ -810,16 +858,34 @@ const WordLikeEditor = React.forwardRef<WordLikeEditorHandle, WordLikeEditorProp
             const body = editor.getBody();
             body.style.overflow = 'auto';
             body.style.minHeight = '100vh';
-            const hasContent = body.innerHTML.trim() && body.innerHTML.trim() !== '<p><br></p>';
-            if (!hasContent) {
+            
+            // Clean any content outside of word-page structure
+            const existingPages = body.querySelectorAll('.word-page');
+            const hasValidPageStructure = existingPages.length > 0;
+            
+            if (!hasValidPageStructure) {
+              // Set clean initial page structure
               body.innerHTML = `
                 <div class="word-page" data-page="1">
-                  <div class="word-page-content">
-                    <p><br></p>
+                  <div class="word-page-content" data-content-integrity="protected">
+                    <p data-content-protected="true"><br></p>
                   </div>
                 </div>
               `;
+            } else {
+              // Remove any elements outside of word-page structure
+              Array.from(body.childNodes).forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                  const el = node as Element;
+                  if (!el.classList.contains('word-page')) {
+                    el.remove();
+                  }
+                } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+                  node.remove();
+                }
+              });
             }
+            
             body.classList.add('word-document');
             editor.execCommand('FontName', false, 'Calibri');
             editor.execCommand('FontSize', false, '11pt');
@@ -867,12 +933,15 @@ const WordLikeEditor = React.forwardRef<WordLikeEditorHandle, WordLikeEditorProp
           const style = document.createElement('style');
           style.textContent = `
             .tox-editor-container { border:1px solid #d1d1d1!important; }
-            .tox-edit-area { background:#f5f5f5!important; padding:20px!important; }
-            .tox-edit-area iframe { background:#f5f5f5!important; overflow-y:auto!important; }
+            .tox-edit-area { background:#e0e0e0!important; padding:0!important; }
+            .tox-edit-area__iframe { background:#e0e0e0!important; }
+            .tox-edit-area iframe { background:#e0e0e0!important; overflow-y:auto!important; }
             .tox-tbtn[aria-label*="Current Page of Total Pages"] {
               background:transparent!important; border:none!important; cursor:default!important;
               color:#333!important; font-weight:500!important; pointer-events:none!important;
             }
+            /* Ensure editor has enough height for A4 pages */
+            .tox-tinymce { min-height: 900px !important; }
           `;
           document.head.appendChild(style);
 
@@ -938,7 +1007,7 @@ const WordLikeEditor = React.forwardRef<WordLikeEditorHandle, WordLikeEditorProp
       </div>
       <textarea
         id="editor"
-        style={{ width: '100%', height: '800px' }}
+        style={{ width: '100%', height: '1200px' }}
         defaultValue=""
       />
     </div>
