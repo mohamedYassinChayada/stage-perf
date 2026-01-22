@@ -1,0 +1,31 @@
+# Backend Dockerfile for Development - installs deps at runtime for hot reload
+FROM python:3.13-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set work directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements (will be overwritten by volume mount, but needed for initial pip install)
+COPY my_project/requirements.txt /tmp/requirements.txt
+
+# Expose port
+EXPOSE 8000
+
+# Install dependencies and run server
+# Dependencies are installed at container start since volume mount overwrites /app
+CMD pip install --no-cache-dir -r requirements.txt && python manage.py runserver 0.0.0.0:8000

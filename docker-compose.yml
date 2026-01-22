@@ -1,0 +1,41 @@
+services:
+  # Django Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: docmanager-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+    env_file:
+      - ./backend/my_project/.env
+    volumes:
+      # Persist media files only (don't mount source code in production)
+      - backend_media:/app/media
+    networks:
+      - docmanager-network
+    restart: unless-stopped
+
+  # React Frontend (Production - nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: docmanager-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - docmanager-network
+    restart: unless-stopped
+
+networks:
+  docmanager-network:
+    driver: bridge
+
+volumes:
+  backend_media:

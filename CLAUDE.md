@@ -77,8 +77,32 @@ Key relationships:
 
 user1/pass, user2/pass, user3/pass
 
+## Docker
+
+See `DOCKER.md` for full documentation.
+
+### Quick Start
+```bash
+# Production (frontend on port 80, backend on 8000)
+docker-compose up -d --build
+
+# Development with hot reload (frontend on 5173, backend on 8000)
+docker-compose -f docker-compose.dev.yml up -d --build
+
+# Stop containers
+docker-compose down
+```
+
+### Common Docker Commands
+```bash
+docker-compose logs -f              # View logs
+docker-compose exec backend bash    # Shell into backend
+docker-compose exec backend python manage.py migrate  # Run migrations
+```
+
 ## Project Documentation
 
+- `DOCKER.md` - Docker setup and commands
 - `.cursor/rules/project-plan.mdc` - Project requirements and patterns
 - `.cursor/rules/database-model.mdc` - Database schema (PlantUML)
 - `backend/my_project/EASYOCR_IMPLEMENTATION.md` - OCR setup details

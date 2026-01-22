@@ -1,0 +1,52 @@
+# Development configuration with hot reload for both frontend and backend
+
+services:
+  # Django Backend (Development)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: docmanager-backend-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+    env_file:
+      - ./backend/my_project/.env
+    volumes:
+      # Mount source code for hot reload
+      - ./backend/my_project:/app
+      # Persist media files
+      - backend_media:/app/media
+    networks:
+      - docmanager-network
+    restart: unless-stopped
+
+  # React Frontend (Development - Vite dev server)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: docmanager-frontend-dev
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend:/app
+      # Exclude node_modules from mount
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - docmanager-network
+    restart: unless-stopped
+
+networks:
+  docmanager-network:
+    driver: bridge
+
+volumes:
+  backend_media:

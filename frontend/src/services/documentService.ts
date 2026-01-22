@@ -2,7 +2,8 @@
  * Document management service for handling API calls to the Django backend
  */
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+// Use environment variable or default to localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 // Type definitions
 export interface Document {
