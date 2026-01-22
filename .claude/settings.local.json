@@ -6,7 +6,8 @@
       "Bash(../my_venv/Scripts/python.exe:*)",
       "Bash(my_venv/Scripts/python.exe:*)",
       "Bash(my_venv/Scripts/pip.exe show:*)",
-      "Bash(timeout 3 ../my_venv/Scripts/python.exe manage.py runserver:*)"
+      "Bash(timeout 3 ../my_venv/Scripts/python.exe manage.py runserver:*)",
+      "Bash(git -C \"C:\\\\stage-perf\" log --oneline -10)"
     ]
   }
 }
