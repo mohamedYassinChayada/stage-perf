@@ -138,7 +138,17 @@ const authHeaders = (): HeadersInit => {
 };
 
 /**
- * Get all documents with their QR codes
+ * Paginated response type
+ */
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+/**
+ * Get all documents with their QR codes (handles pagination)
  */
 export const getAllDocuments = async (): Promise<Document[]> => {
   try {
@@ -154,7 +164,35 @@ export const getAllDocuments = async (): Promise<Document[]> => {
     }
 
     const data = await response.json();
-    return data;
+    // Handle both paginated and non-paginated responses
+    if (Array.isArray(data)) {
+      return data;
+    }
+    // Paginated response - return results array
+    return data.results || [];
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get documents with pagination info
+ */
+export const getDocumentsPaginated = async (page: number = 1): Promise<PaginatedResponse<Document>> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/documents/?page=${page}`, {
+      method: 'GET',
+      headers: authHeaders(),
+    });
+
+    if (!response.ok) {
+      const err = new Error(`HTTP error! status: ${response.status}`) as Error & { status: number };
+      err.status = response.status;
+      throw err;
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('Error fetching documents:', error);
     throw error;

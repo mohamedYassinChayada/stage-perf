@@ -17,7 +17,7 @@ from .models import Document, QRLink, ACL, Attachment, Label, Collection, Docume
 from django.contrib.auth.models import Group
 from .serializers import (
     OCRUploadSerializer, OCRResponseSerializer, OCRErrorSerializer,
-    DocumentSerializer, DocumentCreateSerializer, QRCodeSerializer,
+    DocumentSerializer, DocumentListSerializer, DocumentCreateSerializer, QRCodeSerializer,
     GroupSerializer, UserGroupSerializer, GroupMembershipSerializer,
     ShareLinkSerializer, ShareLinkCreateSerializer, ACLSerializer,
     DocumentVersionSerializer, DocumentVersionListSerializer, AuditLogSerializer, DocumentRestoreSerializer
@@ -434,19 +434,22 @@ class DocumentListCreateView(generics.ListCreateAPIView):
         if getattr(self, 'swagger_fake_view', False):
             return Document.objects.none()
         user = self.request.user
-        
+
+        # Base queryset with select_related for owner
+        base_qs = Document.objects.select_related('owner')
+
         # Admin users see all documents
         if user.is_staff or user.is_superuser:
-            return Document.objects.all().order_by('-created_at')
-        
+            return base_qs.order_by('-created_at')
+
         # Get direct user ACLs
         user_acls = ACL.objects.filter(
-            subject_type='user', 
+            subject_type='user',
             subject_id=str(user.id)
         ).filter(
             Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
         ).values_list('document_id', flat=True)
-        
+
         # Get group ACLs
         user_groups = user.groups.values_list('id', flat=True)
         group_acls = ACL.objects.filter(
@@ -455,19 +458,19 @@ class DocumentListCreateView(generics.ListCreateAPIView):
         ).filter(
             Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
         ).values_list('document_id', flat=True)
-        
+
         # Combine owned documents with ACL-granted access
-        return Document.objects.filter(
-            Q(owner=user) | 
-            Q(id__in=user_acls) | 
+        return base_qs.filter(
+            Q(owner=user) |
+            Q(id__in=user_acls) |
             Q(id__in=group_acls)
         ).order_by('-created_at').distinct()
     parser_classes = [MultiPartParser, FormParser]
-    
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return DocumentCreateSerializer
-        return DocumentSerializer
+        return DocumentListSerializer
     
     @swagger_auto_schema(
         operation_description="List all documents with their QR codes",
@@ -1287,7 +1290,9 @@ def search_standard(request):
         qs = qs.filter(title__icontains=q)
     if label_ids:
         qs = qs.filter(documentlabel__label_id__in=label_ids).distinct()
-    data = DocumentSerializer(qs.order_by('-updated_at'), many=True, context={'request': request}).data
+    # Optimize with select_related and use lighter serializer
+    qs = qs.select_related('owner').order_by('-updated_at')[:50]  # Limit results
+    data = DocumentListSerializer(qs, many=True, context={'request': request}).data
     return Response(data, status=200)
 
 
@@ -1321,7 +1326,9 @@ def search_deep(request):
     except Exception as e:
         logger.error(f"Deep search error: {e}")
         qs = qs.filter(text__icontains=q).order_by('-updated_at')
-    data = DocumentSerializer(qs, many=True, context={'request': request}).data
+    # Optimize and limit results
+    qs = qs.select_related('owner')[:50]
+    data = DocumentListSerializer(qs, many=True, context={'request': request}).data
     return Response(data, status=200)
 
 

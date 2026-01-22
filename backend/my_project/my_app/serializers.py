@@ -228,6 +228,37 @@ class DocumentSerializer(serializers.ModelSerializer):
             return obj.owner.username
         return 'Unknown'
 
+class DocumentListSerializer(serializers.ModelSerializer):
+    """
+    Lighter serializer for Document list view - excludes html/text for performance.
+    """
+    qr_code_url = serializers.SerializerMethodField()
+    owner_username = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Document
+        fields = [
+            'id', 'title', 'qr_code', 'qr_code_url', 'created_at', 'updated_at',
+            'owner_username'
+        ]
+        read_only_fields = ['id', 'qr_code', 'created_at', 'updated_at']
+
+    def get_qr_code_url(self, obj):
+        """Get the full URL for the QR code image."""
+        if obj.qr_code:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.qr_code.url)
+            return obj.qr_code.url
+        return None
+
+    def get_owner_username(self, obj):
+        """Get the username of the document owner."""
+        if obj.owner:
+            return obj.owner.username
+        return 'Unknown'
+
+
 class DocumentCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating documents with automatic QR code generation.

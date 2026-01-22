@@ -15,7 +15,9 @@
       "Bash(PGPASSWORD=npg_wc5U1XSYkLQl \"/c/Program Files/PostgreSQL/17/bin/psql\":*)",
       "Bash(pip install:*)",
       "Bash(python -m pip install:*)",
-      "Bash(python manage.py check:*)"
+      "Bash(python manage.py check:*)",
+      "Bash(/c/stage-perf/backend/my_venv/Scripts/pip install:*)",
+      "Bash(\"C:/stage-perf/backend/my_venv/Scripts/python.exe\" -m pip install python-dotenv)"
     ]
   }
 }
