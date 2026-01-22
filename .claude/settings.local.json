@@ -7,7 +7,15 @@
       "Bash(my_venv/Scripts/python.exe:*)",
       "Bash(my_venv/Scripts/pip.exe show:*)",
       "Bash(timeout 3 ../my_venv/Scripts/python.exe manage.py runserver:*)",
-      "Bash(git -C \"C:\\\\stage-perf\" log --oneline -10)"
+      "Bash(git -C \"C:\\\\stage-perf\" log --oneline -10)",
+      "Bash($env:PGPASSWORD='admin')",
+      "Bash(pg_dump:*)",
+      "Bash(where:*)",
+      "Bash(PGPASSWORD=admin \"/c/Program Files/PostgreSQL/17/bin/pg_dump\":*)",
+      "Bash(PGPASSWORD=npg_wc5U1XSYkLQl \"/c/Program Files/PostgreSQL/17/bin/psql\":*)",
+      "Bash(pip install:*)",
+      "Bash(python -m pip install:*)",
+      "Bash(python manage.py check:*)"
     ]
   }
 }

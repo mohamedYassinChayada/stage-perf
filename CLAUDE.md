@@ -28,7 +28,8 @@ python manage.py createsuperuser # Create admin user
 - Swagger UI: http://localhost:8000/swagger/
 
 ### Database
-- PostgreSQL on localhost:5432, database: `docmanager`, user: `postgres`, password: `admin`
+- Neon PostgreSQL (cloud) - connection configured via `DATABASE_URL` in `.env` file
+- Uses `python-dotenv` to load environment variables
 
 ## Architecture
 
