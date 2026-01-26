@@ -38,8 +38,11 @@ COPY my_project/ .
 # Create media directory for uploads
 RUN mkdir -p media/qrcodes
 
+# Collect static files for whitenoise
+RUN python manage.py collectstatic --noinput
+
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run migrations and start gunicorn
+CMD ["sh", "-c", "python manage.py migrate && gunicorn my_project.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"]

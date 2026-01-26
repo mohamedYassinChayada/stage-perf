@@ -25,12 +25,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$9_$)o4pu@3ou#_&fxiotv)v=mf7^m7kjpt2095o7o4neiavpz'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-$9_$)o4pu@3ou#_&fxiotv)v=mf7^m7kjpt2095o7o4neiavpz')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+# Allowed hosts - add your Koyeb domain here
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -53,6 +54,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # Should be at the top
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -136,6 +138,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# WhiteNoise configuration for serving static files in production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Media files (uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -194,16 +199,26 @@ REDOC_SETTINGS = {
 }
 
 # CORS Settings for API access
-CORS_ALLOWED_ORIGINS = [
+# Parse CORS origins from environment variable or use defaults
+_cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
+_cors_origins = [origin.strip() for origin in _cors_origins_env.split(',') if origin.strip()] if _cors_origins_env else []
+
+CORS_ALLOWED_ORIGINS = _cors_origins or [
     "http://localhost:3000",  # React development server
     "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite dev server
+    "http://127.0.0.1:5173",
     "http://localhost:8000",  # Django development server
     "http://127.0.0.1:8000",
+    "https://stage-perf.vercel.app",  # Production Vercel frontend
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only in development
+
+# CSRF trusted origins for production
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://stage-perf.vercel.app').split(',')
 
 # File Upload Settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
@@ -213,7 +228,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 EASYOCR_LANGUAGES = ['en']  # English by default, can add more languages like ['en', 'fr', 'de']
 EASYOCR_GPU = False  # Set to True if you have a compatible GPU and want to use it
 
-# Logging Configuration
+# Logging Configuration - console only for container deployments
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -230,11 +245,6 @@ LOGGING = {
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'django.log',
             'formatter': 'verbose',
         },
     },
@@ -244,7 +254,7 @@ LOGGING = {
     },
     'loggers': {
         'my_app': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
