@@ -1,0 +1,483 @@
+/* Groups Page Styles */
+
+.groups-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Page Header */
+.groups-page-header {
+  background: linear-gradient(135deg, #2b579a 0%, #1e3d72 100%);
+  color: white;
+  padding: 28px 32px;
+  border-radius: 14px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 12px rgba(43, 87, 154, 0.2);
+}
+
+.groups-page-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.groups-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.groups-header-btn {
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  font-size: 0.9rem;
+  border: none;
+}
+
+.groups-header-btn-primary {
+  background: rgba(255, 255, 255, 0.95);
+  color: #2b579a;
+}
+
+.groups-header-btn-primary:hover {
+  background: white;
+  transform: translateY(-1px);
+}
+
+.groups-header-btn-secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.groups-header-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Loading State */
+.groups-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.groups-loading-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid #e9ecef;
+  border-top-color: #2b579a;
+  border-radius: 50%;
+  animation: groups-spin 0.8s linear infinite;
+  margin-bottom: 18px;
+}
+
+@keyframes groups-spin {
+  to { transform: rotate(360deg); }
+}
+
+.groups-loading p {
+  color: #6c757d;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Error State */
+.groups-error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 18px 24px;
+  border-radius: 10px;
+  border: 1px solid #f5c6cb;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Two-Panel Layout */
+.groups-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Groups List Panel */
+.groups-list-panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.groups-list-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fb;
+}
+
+.groups-list-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.groups-list-body {
+  padding: 12px;
+}
+
+.groups-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.groups-empty p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Group Card */
+.groups-card {
+  padding: 14px 16px;
+  border: 1.5px solid #e9ecef;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+}
+
+.groups-card:hover {
+  border-color: #b6d4fe;
+  background: #f8f9fb;
+}
+
+.groups-card.selected {
+  border-color: #2b579a;
+  background: #e8f0fe;
+  box-shadow: 0 0 0 1px #2b579a;
+}
+
+.groups-card-info {
+  flex: 1;
+}
+
+.groups-card-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0 0 3px 0;
+}
+
+.groups-card-count {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin: 0;
+}
+
+.groups-card-delete {
+  padding: 6px 12px;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  background: white;
+  color: #dc3545;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.groups-card-delete:hover {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+/* Detail Panel */
+.groups-detail-panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.groups-detail-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fb;
+}
+
+.groups-detail-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.groups-detail-placeholder {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6c757d;
+}
+
+.groups-detail-placeholder p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Members Section */
+.groups-members-section {
+  padding: 20px;
+}
+
+.groups-members-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #495057;
+  margin: 0 0 14px 0;
+}
+
+.groups-members-empty {
+  color: #adb5bd;
+  font-size: 0.9rem;
+  padding: 16px 0;
+  text-align: center;
+  font-style: italic;
+}
+
+.groups-member-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: background 0.15s;
+}
+
+.groups-member-row:hover {
+  background: #f8f9fb;
+}
+
+.groups-member-name {
+  font-weight: 600;
+  color: #1a202c;
+  font-size: 0.9rem;
+}
+
+.groups-member-email {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-top: 2px;
+}
+
+.groups-member-remove {
+  padding: 5px 12px;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  background: white;
+  color: #dc3545;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.groups-member-remove:hover {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+/* Add Members Section */
+.groups-add-section {
+  padding: 20px;
+  border-top: 1px solid #e9ecef;
+  background: #f8f9fb;
+}
+
+.groups-add-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #495057;
+  margin: 0 0 12px 0;
+}
+
+.groups-add-select {
+  width: 100%;
+  height: 120px;
+  padding: 8px;
+  border: 1.5px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.groups-add-select:focus {
+  outline: none;
+  border-color: #2b579a;
+  box-shadow: 0 0 0 3px rgba(43, 87, 154, 0.1);
+}
+
+.groups-add-hint {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin: 0 0 12px 0;
+}
+
+.groups-add-btn {
+  padding: 9px 18px;
+  background: #2b579a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.groups-add-btn:hover:not(:disabled) {
+  background: #1e3d72;
+}
+
+.groups-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Create Modal */
+.groups-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.groups-modal {
+  background: white;
+  padding: 28px;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  min-width: 420px;
+  max-width: 90%;
+}
+
+.groups-modal h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.groups-modal-input-group {
+  margin-bottom: 20px;
+}
+
+.groups-modal-input-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.groups-modal-input-group input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  background: #f8f9fa;
+  box-sizing: border-box;
+}
+
+.groups-modal-input-group input:focus {
+  outline: none;
+  border-color: #2b579a;
+  box-shadow: 0 0 0 3px rgba(43, 87, 154, 0.12);
+  background: white;
+}
+
+.groups-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.groups-modal-cancel {
+  padding: 9px 18px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: white;
+  color: #495057;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.9rem;
+}
+
+.groups-modal-cancel:hover {
+  background: #f1f3f5;
+}
+
+.groups-modal-submit {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #2b579a;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.9rem;
+}
+
+.groups-modal-submit:hover {
+  background: #1e3d72;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .groups-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .groups-page-header {
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+
+  .groups-modal {
+    min-width: auto;
+    width: 90%;
+  }
+}

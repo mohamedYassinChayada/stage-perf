@@ -10,6 +10,7 @@ import {
 } from '../services/documentService';
 import type { Document, Collection, CollectionDetail } from '../services/documentService';
 import { Link } from 'react-router-dom';
+import './CollectionsManagerPage.css';
 
 interface CollectionNode extends Collection {
   children: CollectionNode[];
@@ -41,37 +42,45 @@ interface CollectionNodeProps {
   level?: number;
 }
 
-const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({ 
-  node, 
-  selectedId, 
-  onSelect, 
-  onDropDocument, 
+const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
+  node,
+  selectedId,
+  onSelect,
+  onDropDocument,
   onDelete,
   collapsedNodes,
   onToggleCollapse,
-  level = 0 
+  level = 0
 }) => {
   const [details, setDetails] = useState<CollectionDetail | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const hasChildren = node.children && node.children.length > 0;
   const isCollapsed = collapsedNodes.has(node.id);
-  
+  const isSelected = selectedId === node.id;
+
   useEffect(() => {
-    if (selectedId === node.id && !details && !loadingDetails) {
+    if (isSelected && !details && !loadingDetails) {
       setLoadingDetails(true);
       getCollectionDetail(node.id)
         .then((data) => setDetails(data as CollectionDetail))
         .catch(console.error)
         .finally(() => setLoadingDetails(false));
     }
-  }, [selectedId, node.id, details, loadingDetails]);
+  }, [selectedId, node.id, details, loadingDetails, isSelected]);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (): void => {
+    setIsDragOver(false);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
+    setIsDragOver(false);
     const docId = e.dataTransfer.getData('text/doc-id');
     if (docId) onDropDocument(parseInt(docId, 10), node.id);
   };
@@ -91,89 +100,44 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
   };
 
   return (
-    <div style={{ marginLeft: level * 16 }}>
-      <div 
-        style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          padding: '4px 0',
-          borderRadius: '4px',
-          backgroundColor: selectedId === node.id ? '#e3f2fd' : 'transparent',
-          border: selectedId === node.id ? '1px solid #2196f3' : '1px solid transparent',
-        }}
-        onDragOver={handleDragOver} 
+    <div style={{ marginLeft: level * 18 }}>
+      <div
+        className={`collections-tree-node ${isSelected ? 'selected' : ''}`}
+        style={isDragOver ? { background: '#dbeafe', borderColor: '#3b82f6' } : undefined}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
         {hasChildren && (
           <button
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '2px',
-              marginRight: '4px',
-              fontSize: '12px',
-              color: '#666'
-            }}
+            className="collections-tree-toggle"
             onClick={handleToggleCollapse}
             title={isCollapsed ? 'Expand' : 'Collapse'}
           >
-            {isCollapsed ? '▶' : '▼'}
+            {isCollapsed ? '\u25B6' : '\u25BC'}
           </button>
         )}
-        
-        <button
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '4px 8px',
-            flexGrow: 1,
-            textAlign: 'left',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            color: selectedId === node.id ? '#1976d2' : '#333',
-            fontWeight: selectedId === node.id ? '500' : '400',
-          }}
-          onClick={handleSelect}
-          title="Drop documents here to add to this collection"
-        >
-          <span>📂</span>
+
+        <button className="collections-tree-name" onClick={handleSelect}>
+          <span>{isCollapsed ? '\uD83D\uDCC1' : '\uD83D\uDCC2'}</span>
           <span>{node.name}</span>
-          {selectedId === node.id && details && (
-            <span style={{ 
-              fontSize: '11px', 
-              color: '#666', 
-              background: '#f5f5f5', 
-              padding: '1px 4px', 
-              borderRadius: '3px',
-              marginLeft: '4px'
-            }}>
+          {isSelected && details && (
+            <span className="collections-tree-badge">
               {details.document_count} docs
               {details.subcollection_count > 0 && `, ${details.subcollection_count} subs`}
             </span>
           )}
-          {loadingDetails && selectedId === node.id && (
-            <span style={{ fontSize: '10px', color: '#999' }}>⟳</span>
+          {loadingDetails && isSelected && (
+            <span style={{ fontSize: '0.7rem', color: '#adb5bd' }}>\u27F3</span>
           )}
         </button>
 
         <button
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '4px',
-            color: '#d32f2f',
-            fontSize: '12px',
-            opacity: 0.6,
-            transition: 'opacity 0.2s',
-          }}
+          className="collections-tree-delete"
           onClick={handleDelete}
           title={`Delete collection "${node.name}" and all sub-collections`}
         >
-          🗑️
+          \uD83D\uDDD1\uFE0F
         </button>
       </div>
 
@@ -211,57 +175,20 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, title, 
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '24px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        maxWidth: '500px',
-        width: '90%'
-      }}>
-        <h3 style={{ margin: '0 0 16px 0', color: '#d32f2f' }}>{title}</h3>
-        <p style={{ margin: '0 0 12px 0', lineHeight: '1.5' }}>{message}</p>
+    <div className="collections-dialog-overlay">
+      <div className="collections-dialog">
+        <h3>{title}</h3>
+        <p>{message}</p>
         {details && (
-          <div style={{ 
-            backgroundColor: '#f5f5f5', 
-            padding: '12px', 
-            borderRadius: '4px', 
-            fontSize: '14px',
-            marginBottom: '16px'
-          }}>
+          <div className="collections-dialog-details">
             {details}
           </div>
         )}
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button 
-            className="btn btn-secondary" 
-            onClick={onCancel}
-            style={{ minWidth: '80px' }}
-          >
+        <div className="collections-dialog-actions">
+          <button className="collections-dialog-cancel" onClick={onCancel}>
             Cancel
           </button>
-          <button 
-            className="btn"
-            onClick={onConfirm}
-            style={{ 
-              minWidth: '80px',
-              backgroundColor: '#d32f2f', 
-              color: 'white', 
-              border: 'none' 
-            }}
-          >
+          <button className="collections-dialog-delete" onClick={onConfirm}>
             Delete
           </button>
         </div>
@@ -312,8 +239,8 @@ const CollectionsManagerPage: React.FC = () => {
 
   const documentsInSelected = useMemo(() => {
     if (!selectedCollectionId) return documents;
-    return documents.filter(d => 
-      Array.isArray(d.collections) && 
+    return documents.filter(d =>
+      Array.isArray(d.collections) &&
       d.collections.some(c => c.id === selectedCollectionId)
     );
   }, [documents, selectedCollectionId]);
@@ -384,11 +311,11 @@ const CollectionsManagerPage: React.FC = () => {
     setDeleteConfirmation({
       node,
       title: `Delete Collection "${node.name}"?`,
-      message: hasSubCollections 
+      message: hasSubCollections
         ? `This will delete "${node.name}" and all ${totalCollections - 1} of its sub-collections. Documents will NOT be deleted, only unlinked from these collections.`
         : `This will delete the collection "${node.name}". Documents will NOT be deleted, only unlinked from this collection.`,
-      details: hasSubCollections 
-        ? `⚠️ Warning: This will delete ${totalCollections} collection${totalCollections === 1 ? '' : 's'} in total.`
+      details: hasSubCollections
+        ? `Warning: This will delete ${totalCollections} collection${totalCollections === 1 ? '' : 's'} in total.`
         : null
     });
   };
@@ -399,13 +326,13 @@ const CollectionsManagerPage: React.FC = () => {
     try {
       setSaving(true);
       await deleteCollection(deleteConfirmation.node.id);
-      
+
       if (selectedCollectionId === deleteConfirmation.node.id) {
         setSelectedCollectionId(null);
       }
-      
+
       await loadAll();
-      
+
       alert(`Collection "${deleteConfirmation.node.name}" deleted successfully!`);
     } catch (error) {
       alert('Failed to delete collection: ' + (error as Error).message);
@@ -444,63 +371,41 @@ const CollectionsManagerPage: React.FC = () => {
   };
 
   return (
-    <div className="collections-manager" style={{ padding: 16 }}>
-      <header className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h2>🗂️ Collections Manager</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link to="/documents" className="btn">Back to Documents</Link>
-        </div>
+    <div className="collections-page">
+      <header className="collections-page-header">
+        <h2>Collections Manager</h2>
+        <Link to="/documents" className="btn">Back to Documents</Link>
       </header>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 18, marginBottom: 8 }}>⟳</div>
+        <div className="collections-loading">
+          <div className="collections-loading-spinner"></div>
           <p>Loading collections and documents...</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: 24, alignItems: 'start' }}>
-          <div style={{ 
-            border: '1px solid #ddd', 
-            borderRadius: 8, 
-            padding: 16, 
-            backgroundColor: '#fafafa',
-            minHeight: 400 
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <strong style={{ fontSize: 16 }}>Collections Tree</strong>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={expandAll}
-                  style={{ padding: '4px 8px', fontSize: 12 }}
-                  title="Expand all collections"
-                >
-                  📂 Expand All
+        <div className="collections-layout">
+          {/* Tree Panel */}
+          <div className="collections-tree-panel">
+            <div className="collections-tree-header">
+              <h3>Collections Tree</h3>
+              <div className="collections-tree-actions">
+                <button className="collections-tree-action-btn" onClick={expandAll} title="Expand all collections">
+                  Expand All
                 </button>
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={collapseAll}
-                  style={{ padding: '4px 8px', fontSize: 12 }}
-                  title="Collapse all collections"
-                >
-                  📁 Collapse All
+                <button className="collections-tree-action-btn" onClick={collapseAll} title="Collapse all collections">
+                  Collapse All
                 </button>
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => setSelectedCollectionId(null)} 
-                  title="Show all documents"
-                  style={{ padding: '4px 8px', fontSize: 12 }}
-                >
-                  🔄 Show All
+                <button className="collections-tree-action-btn" onClick={() => setSelectedCollectionId(null)} title="Show all documents">
+                  Show All
                 </button>
               </div>
             </div>
 
-            <div style={{ marginBottom: 16, maxHeight: 300, overflowY: 'auto', backgroundColor: 'white', padding: 8, borderRadius: 4, border: '1px solid #eee' }}>
+            <div className="collections-tree-body">
               {tree.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#666', padding: 20 }}>
-                  <p>📂 No collections yet</p>
-                  <p style={{ fontSize: 14, margin: 0 }}>Create your first collection below</p>
+                <div className="collections-tree-empty">
+                  <p>No collections yet</p>
+                  <p>Create your first collection below</p>
                 </div>
               ) : (
                 tree.map(node => (
@@ -518,164 +423,124 @@ const CollectionsManagerPage: React.FC = () => {
               )}
             </div>
 
-            <div style={{ borderTop: '1px solid #ddd', paddingTop: 16 }}>
-              <div style={{ marginBottom: 8 }}>
-                <strong style={{ fontSize: 14, color: '#333' }}>
-                  {selectedCollection 
-                    ? `➕ Add sub-collection under "${selectedCollection.name}"` 
-                    : '➕ Add top-level collection'
-                  }
-                </strong>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input 
-                  placeholder="New collection name" 
-                  value={newSubName} 
+            <div className="collections-create-section">
+              <span className="collections-create-label">
+                {selectedCollection
+                  ? `Add sub-collection under "${selectedCollection.name}"`
+                  : 'Add top-level collection'
+                }
+              </span>
+              <div className="collections-create-form">
+                <input
+                  className="collections-create-input"
+                  placeholder="New collection name"
+                  value={newSubName}
                   onChange={e => setNewSubName(e.target.value)}
-                  style={{ flexGrow: 1, padding: '6px 8px', borderRadius: 4, border: '1px solid #ccc' }}
                   onKeyPress={handleKeyPress}
                 />
-                <button 
-                  className="btn btn-primary" 
-                  disabled={saving || !newSubName.trim()} 
+                <button
+                  className="collections-create-btn"
+                  disabled={saving || !newSubName.trim()}
                   onClick={onCreateSubCollection}
-                  style={{ minWidth: 70 }}
                 >
-                  {saving ? '⟳' : 'Add'}
+                  {saving ? '\u27F3' : 'Add'}
                 </button>
               </div>
             </div>
           </div>
 
-          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 16, backgroundColor: '#fafafa' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <strong style={{ fontSize: 16 }}>
-                  {selectedCollection ? `📄 Documents in "${selectedCollection.name}"` : '📄 All Documents'}
-                </strong>
-                <div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
-                  {documentsInSelected.length} document{documentsInSelected.length === 1 ? '' : 's'}
-                  {selectedCollection && (
-                    <span style={{ marginLeft: 8 }}>
-                      💡 Drag documents from below onto collections on the left to organize them
-                    </span>
-                  )}
-                </div>
-              </div>
+          {/* Documents Panel */}
+          <div className="collections-docs-panel">
+            <div className="collections-docs-header">
+              <h3>
+                {selectedCollection ? `Documents in "${selectedCollection.name}"` : 'All Documents'}
+              </h3>
+              <p className="collections-docs-subtitle">
+                {documentsInSelected.length} document{documentsInSelected.length === 1 ? '' : 's'}
+                {selectedCollection && (
+                  <span className="collections-docs-hint">
+                    Drag documents onto collections to organize them
+                  </span>
+                )}
+              </p>
             </div>
 
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
-              gap: 12,
-              maxHeight: 500,
-              overflowY: 'auto',
-              backgroundColor: 'white',
-              padding: 12,
-              borderRadius: 4,
-              border: '1px solid #eee'
-            }}>
+            <div className="collections-docs-grid">
               {documentsInSelected.length === 0 ? (
-                <div style={{ 
-                  gridColumn: '1 / -1', 
-                  textAlign: 'center', 
-                  color: '#666', 
-                  padding: 40 
-                }}>
+                <div className="collections-docs-empty">
                   {selectedCollection ? (
-                    <div>
-                      <p>📭 No documents in this collection yet</p>
-                      <p style={{ fontSize: 14 }}>Drag documents from other collections to add them here</p>
-                    </div>
+                    <>
+                      <p>No documents in this collection yet</p>
+                      <p style={{ fontSize: '0.85rem' }}>Drag documents from other collections to add them here</p>
+                    </>
                   ) : (
-                    <div>
-                      <p>📄 No documents found</p>
-                      <Link to="/ocr" style={{ fontSize: 14 }}>Create your first document</Link>
-                    </div>
+                    <>
+                      <p>No documents found</p>
+                      <Link to="/ocr">Create your first document</Link>
+                    </>
                   )}
                 </div>
               ) : (
                 documentsInSelected.map(doc => (
-                  <div 
-                    key={doc.id} 
-                    style={{ 
-                      padding: 12, 
-                      border: '1px solid #eee', 
-                      borderRadius: 8, 
-                      backgroundColor: 'white',
-                      cursor: 'grab',
-                      transition: 'all 0.2s',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                    }} 
-                    draggable 
+                  <div
+                    key={doc.id}
+                    className="collections-doc-card"
+                    draggable
                     onDragStart={(e) => onDragStartDoc(e, doc.id)}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <strong title={doc.title} style={{ fontSize: 14, color: '#333' }}>
+                    <div className="collections-doc-card-header">
+                      <strong className="collections-doc-card-title" title={doc.title}>
                         {doc.title.length > 25 ? doc.title.substring(0, 25) + '...' : doc.title}
                       </strong>
-                      <span style={{ cursor: 'grab', color: '#999' }} title="Drag to a collection">⋮⋮</span>
+                      <span className="collections-doc-card-drag" title="Drag to a collection">{'\u22EE\u22EE'}</span>
                     </div>
-                    
-                    <div style={{ marginBottom: 10, minHeight: 20 }}>
+
+                    <div className="collections-doc-card-tags">
                       {Array.isArray(doc.collections) && doc.collections.length > 0 ? (
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <>
                           {doc.collections.slice(0, 3).map(c => (
-                            <span key={c.id} style={{ 
-                              fontSize: 11, 
-                              background: '#e3f2fd', 
-                              color: '#1976d2', 
-                              padding: '2px 6px', 
-                              borderRadius: 12 
-                            }}>
+                            <span key={c.id} className="collections-doc-tag">
                               {c.name}
                             </span>
                           ))}
                           {doc.collections.length > 3 && (
-                            <span style={{ 
-                              fontSize: 11, 
-                              color: '#666',
-                              padding: '2px 6px'
-                            }}>
+                            <span className="collections-doc-tag-more">
                               +{doc.collections.length - 3} more
                             </span>
                           )}
-                        </div>
+                        </>
                       ) : (
-                        <span style={{ fontSize: 11, color: '#999', fontStyle: 'italic' }}>
+                        <span className="collections-doc-no-tags">
                           No collections
                         </span>
                       )}
                     </div>
-                    
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <Link 
-                        to={`/documents/${doc.id}`} 
-                        className="btn btn-secondary"
-                        style={{ fontSize: 12, padding: '4px 8px' }}
+
+                    <div className="collections-doc-actions">
+                      <Link
+                        to={`/documents/${doc.id}`}
+                        className="collections-doc-action-btn"
                       >
-                        📝 Edit
+                        Edit
                       </Link>
                       {doc.qr_code_url && (
-                        <a 
-                          className="btn" 
-                          href={doc.qr_code_url} 
-                          target="_blank" 
+                        <a
+                          className="collections-doc-action-btn"
+                          href={doc.qr_code_url}
+                          target="_blank"
                           rel="noreferrer"
-                          style={{ fontSize: 12, padding: '4px 8px' }}
                         >
-                          📱 QR
+                          QR
                         </a>
                       )}
                       {doc.file_url && (
-                        <a 
-                          className="btn" 
-                          href={doc.file_url} 
-                          target="_blank" 
+                        <a
+                          className="collections-doc-action-btn"
+                          href={doc.file_url}
+                          target="_blank"
                           rel="noreferrer"
-                          style={{ fontSize: 12, padding: '4px 8px' }}
                         >
-                          📄 File
+                          File
                         </a>
                       )}
                     </div>
@@ -697,20 +562,9 @@ const CollectionsManagerPage: React.FC = () => {
       />
 
       {saving && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(255,255,255,0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 999
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 24, marginBottom: 8 }}>⟳</div>
+        <div className="collections-saving-overlay">
+          <div className="collections-saving-content">
+            <div className="collections-saving-spinner"></div>
             <p>Processing...</p>
           </div>
         </div>

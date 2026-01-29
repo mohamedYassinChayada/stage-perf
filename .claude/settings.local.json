@@ -20,7 +20,8 @@
       "Bash(\"C:/stage-perf/backend/my_venv/Scripts/python.exe\" -m pip install python-dotenv)",
       "Bash(npm run build:*)",
       "Bash(dir:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build)"
     ]
   }
 }

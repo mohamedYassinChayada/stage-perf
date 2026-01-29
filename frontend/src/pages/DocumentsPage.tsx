@@ -398,7 +398,8 @@ const DocumentsPage: React.FC = () => {
       <div className="documents-page">
         <div className="loading">
           <div className="loading-spinner"></div>
-          <p>Loading documents...</p>
+          <p className="loading-text">Loading your documents</p>
+          <p className="loading-subtext">Fetching documents, labels, and collections...</p>
         </div>
       </div>
     );

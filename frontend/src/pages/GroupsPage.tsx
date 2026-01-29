@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   listGroups, createGroup, deleteGroup,
   getGroupMembers, addGroupMembers, removeGroupMember, listUsers
 } from '../services/documentService';
 import type { Group, User, GroupMember } from '../services/documentService';
+import './GroupsPage.css';
 
 interface CreateForm {
   name: string;
@@ -92,7 +93,7 @@ const GroupsPage: React.FC = () => {
   const handleAddMembers = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!selectedGroup || addMemberForm.userIds.length === 0) return;
-    
+
     try {
       await addGroupMembers(selectedGroup.id, addMemberForm.userIds);
       setAddMemberForm({ userIds: [] });
@@ -119,184 +120,179 @@ const GroupsPage: React.FC = () => {
     setAddMemberForm({ userIds: selected });
   };
 
-  if (loading) return <div style={{ padding: 16 }}>Loading...</div>;
-  if (error) return <div style={{ padding: 16, color: 'red' }}>{error}</div>;
+  if (loading) {
+    return (
+      <div className="groups-page">
+        <header className="groups-page-header">
+          <h2>Groups Management</h2>
+        </header>
+        <div className="groups-loading">
+          <div className="groups-loading-spinner"></div>
+          <p>Loading groups and users...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="groups-page">
+        <header className="groups-page-header">
+          <h2>Groups Management</h2>
+        </header>
+        <div className="groups-error">{error}</div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="groups-page">
+      <header className="groups-page-header">
         <h2>Groups Management</h2>
-        <div>
-          <button 
-            className="btn btn-primary" 
+        <div className="groups-header-actions">
+          <button
+            className="groups-header-btn groups-header-btn-primary"
             onClick={() => setShowCreateForm(true)}
-            style={{ marginRight: 8 }}
           >
             Create Group
           </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/documents')}>
+          <button
+            className="groups-header-btn groups-header-btn-secondary"
+            onClick={() => navigate('/documents')}
+          >
             Back to Documents
           </button>
         </div>
-      </div>
+      </header>
 
-      <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
-        <div style={{ flex: '1 1 300px' }}>
-          <h3>Groups</h3>
-          {groups.length === 0 ? (
-            <div>No groups available.</div>
-          ) : (
-            <div>
-              {groups.map(group => (
-                <div 
+      <div className="groups-layout">
+        {/* Groups List */}
+        <div className="groups-list-panel">
+          <div className="groups-list-header">
+            <h3>Groups</h3>
+          </div>
+          <div className="groups-list-body">
+            {groups.length === 0 ? (
+              <div className="groups-empty">
+                <p>No groups available. Create one to get started.</p>
+              </div>
+            ) : (
+              groups.map(group => (
+                <div
                   key={group.id}
-                  style={{
-                    border: selectedGroup?.id === group.id ? '2px solid #007bff' : '1px solid #ddd',
-                    borderRadius: 4,
-                    padding: 12,
-                    marginBottom: 8,
-                    cursor: 'pointer',
-                    backgroundColor: selectedGroup?.id === group.id ? '#f8f9fa' : 'white'
-                  }}
+                  className={`groups-card ${selectedGroup?.id === group.id ? 'selected' : ''}`}
                   onClick={() => setSelectedGroup(group)}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <strong>{group.name}</strong>
-                      <div style={{ fontSize: '0.9em', color: '#666' }}>
-                        {group.member_count} member{group.member_count !== 1 ? 's' : ''}
-                      </div>
+                  <div className="groups-card-info">
+                    <div className="groups-card-name">{group.name}</div>
+                    <div className="groups-card-count">
+                      {group.member_count} member{group.member_count !== 1 ? 's' : ''}
                     </div>
-                    <button 
-                      className="btn btn-sm btn-danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteGroup(group.id);
-                      }}
-                    >
-                      Delete
-                    </button>
                   </div>
+                  <button
+                    className="groups-card-delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteGroup(group.id);
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
 
-        <div style={{ flex: '1 1 400px' }}>
+        {/* Group Detail */}
+        <div className="groups-detail-panel">
           {selectedGroup ? (
-            <div>
-              <h3>Group: {selectedGroup.name}</h3>
-              
-              <h4>Members ({groupMembers.length})</h4>
-              {groupMembers.length === 0 ? (
-                <div>No members in this group.</div>
-              ) : (
-                <div style={{ marginBottom: 16 }}>
-                  {groupMembers.map(member => (
-                    <div 
-                      key={member.user_id}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: 8,
-                        border: '1px solid #eee',
-                        borderRadius: 4,
-                        marginBottom: 4
-                      }}
-                    >
+            <>
+              <div className="groups-detail-header">
+                <h3>Group: {selectedGroup.name}</h3>
+              </div>
+
+              <div className="groups-members-section">
+                <h4 className="groups-members-title">Members ({groupMembers.length})</h4>
+                {groupMembers.length === 0 ? (
+                  <div className="groups-members-empty">No members in this group yet.</div>
+                ) : (
+                  groupMembers.map(member => (
+                    <div key={member.user_id} className="groups-member-row">
                       <div>
-                        <strong>{member.user_display_name}</strong>
-                        <div style={{ fontSize: '0.9em', color: '#666' }}>
-                          {member.user_email}
-                        </div>
+                        <div className="groups-member-name">{member.user_display_name}</div>
+                        <div className="groups-member-email">{member.user_email}</div>
                       </div>
-                      <button 
-                        className="btn btn-sm btn-outline-danger"
+                      <button
+                        className="groups-member-remove"
                         onClick={() => handleRemoveMember(member.user_id)}
                       >
                         Remove
                       </button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
 
-              <h4>Add Members</h4>
-              <form onSubmit={handleAddMembers}>
-                <select 
-                  multiple
-                  value={addMemberForm.userIds.map(String)}
-                  onChange={handleSelectChange}
-                  style={{ width: '100%', height: 120, marginBottom: 8 }}
-                >
-                  {users
-                    .filter(user => !groupMembers.some(member => member.user_id === user.id))
-                    .map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.username} ({user.email})
-                      </option>
-                    ))
-                  }
-                </select>
-                <div style={{ fontSize: '0.9em', color: '#666', marginBottom: 8 }}>
-                  Hold Ctrl/Cmd to select multiple users
-                </div>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary"
-                  disabled={addMemberForm.userIds.length === 0}
-                >
-                  Add Selected Members
-                </button>
-              </form>
-            </div>
+              <div className="groups-add-section">
+                <h4 className="groups-add-title">Add Members</h4>
+                <form onSubmit={handleAddMembers}>
+                  <select
+                    className="groups-add-select"
+                    multiple
+                    value={addMemberForm.userIds.map(String)}
+                    onChange={handleSelectChange}
+                  >
+                    {users
+                      .filter(user => !groupMembers.some(member => member.user_id === user.id))
+                      .map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.username} ({user.email})
+                        </option>
+                      ))
+                    }
+                  </select>
+                  <p className="groups-add-hint">
+                    Hold Ctrl/Cmd to select multiple users
+                  </p>
+                  <button
+                    type="submit"
+                    className="groups-add-btn"
+                    disabled={addMemberForm.userIds.length === 0}
+                  >
+                    Add Selected Members
+                  </button>
+                </form>
+              </div>
+            </>
           ) : (
-            <div style={{ textAlign: 'center', padding: 32, color: '#666' }}>
-              Select a group to view and manage its members
+            <div className="groups-detail-placeholder">
+              <p>Select a group to view and manage its members</p>
             </div>
           )}
         </div>
       </div>
 
+      {/* Create Group Modal */}
       {showCreateForm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: 24,
-            borderRadius: 8,
-            minWidth: 400,
-            maxWidth: '90%'
-          }}>
+        <div className="groups-modal-overlay">
+          <div className="groups-modal">
             <h3>Create New Group</h3>
             <form onSubmit={handleCreateGroup}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', marginBottom: 4 }}>Group Name:</label>
-                <input 
+              <div className="groups-modal-input-group">
+                <label>Group Name</label>
+                <input
                   type="text"
                   value={createForm.name}
                   onChange={(e) => setCreateForm({ name: e.target.value })}
                   required
-                  style={{ width: '100%', padding: 8 }}
                   placeholder="Enter group name"
                 />
               </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary"
+              <div className="groups-modal-actions">
+                <button
+                  type="button"
+                  className="groups-modal-cancel"
                   onClick={() => {
                     setShowCreateForm(false);
                     setCreateForm({ name: '' });
@@ -304,7 +300,7 @@ const GroupsPage: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="groups-modal-submit">
                   Create Group
                 </button>
               </div>
