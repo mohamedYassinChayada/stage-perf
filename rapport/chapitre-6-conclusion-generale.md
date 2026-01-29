@@ -1,0 +1,112 @@
+# Chapitre VI : Conclusion Generale
+
+## 1. Bilan du travail realise
+
+Le present projet de stage a abouti a la conception et au developpement d'un systeme de gestion documentaire complet, couvrant l'ensemble du cycle de vie des documents numeriques : digitalisation, edition, organisation, partage et recherche.
+
+Le travail realise au cours des trois sprints peut etre synthetise comme suit :
+
+```mermaid
+pie title Repartition des fonctionnalites par sprint
+    "Sprint 1 : Authentification et RBAC" : 21
+    "Sprint 2 : OCR et Editeur" : 39
+    "Sprint 3 : Partage et Recherche" : 23
+    "Tests et Integration" : 17
+```
+
+*Figure 24 : Repartition de l'effort par sprint*
+
+**Sprint 1** a permis de mettre en place le socle applicatif avec un systeme d'authentification par token, un controle d'acces granulaire par roles (OWNER, EDITOR, VIEWER) supportant les utilisateurs individuels et les groupes, ainsi qu'un journal d'audit complet.
+
+**Sprint 2** a constitue le coeur fonctionnel du systeme avec l'integration d'un pipeline OCR avance (EasyOCR avec preprocessing d'images), le developpement d'un editeur multi-pages de type traitement de texte (TinyMCE), l'export au format Word, le versionnement des documents et l'organisation par labels et collections.
+
+**Sprint 3** a finalise le systeme avec la generation et la resolution de QR codes, les liens de partage securises avec tokens, et la recherche plein texte exploitant les capacites natives de PostgreSQL (tsvector).
+
+**Bilan technique du projet :**
+
+| Composant | Indicateur |
+|-----------|-----------|
+| Modeles de donnees | 12 modeles Django (Document, DocumentVersion, Label, Collection, ACL, ShareLink, QRLink, AuditLog, etc.) |
+| Endpoints API | 30+ endpoints REST documentes via Swagger |
+| Pages frontend | 10 pages React avec TypeScript |
+| Lignes de code backend (views.py) | ~1 950 lignes |
+| Lignes de code frontend (services) | ~850 lignes (documentService.ts + ocrService.ts) |
+| Technologies integrees | Django 5.2, React 19, EasyOCR, TinyMCE, PostgreSQL, Docker |
+
+## 2. Difficultes rencontrees
+
+Au cours du developpement, plusieurs difficultes techniques ont ete rencontrees :
+
+- **Integration d'EasyOCR** : La mise en place du moteur OCR a necessite un travail approfondi sur le preprocessing des images. La qualite de l'extraction depend fortement de la resolution et du contraste de l'image source. L'application de techniques comme l'egalisation adaptative d'histogramme (CLAHE) et le flou gaussien a permis d'ameliorer significativement les resultats.
+
+- **Editeur multi-pages** : Le developpement du composant WordLikeEditor a represente un defi technique considerable. La gestion du reflow du contenu entre les pages, la preservation de la position du curseur lors des manipulations du DOM, et le debounce des operations de redistribution ont necessite une logique complexe.
+
+- **Recherche plein texte** : La configuration de l'index tsvector de PostgreSQL et la gestion du fallback pour les environnements sans support natif ont demande une comprehension approfondie des mecanismes de recherche de PostgreSQL.
+
+- **Configuration Docker** : La separation en deux conteneurs (frontend et backend) avec la gestion des volumes pour les fichiers media et la configuration multi-environnement (developpement et production) a necessite plusieurs iterations.
+
+- **Connexion a la base de donnees** : L'utilisation de Neon PostgreSQL (cloud) a necessite l'optimisation des parametres de connexion pour reduire la latence et gerer correctement les variables d'environnement via python-dotenv.
+
+## 3. Competences acquises
+
+Ce stage a permis l'acquisition et le renforcement de nombreuses competences techniques et methodologiques :
+
+**Competences techniques :**
+
+```mermaid
+mindmap
+  root((Competences<br/>Acquises))
+    Backend
+      Django REST Framework
+      Authentification par token
+      Systeme RBAC
+      PostgreSQL avance (tsvector)
+      OCR avec EasyOCR
+    Frontend
+      React 19 avec TypeScript
+      Routage client SPA
+      Editeur riche TinyMCE
+      Export Word docx.js
+    DevOps
+      Docker et Docker Compose
+      Multi-environnement
+      Deploiement cloud
+    Methodologie
+      Scrum
+      Gestion de sprints
+      User Stories
+```
+
+*Figure 25 : Cartographie des competences acquises*
+
+- **Developpement backend** : Maitrise de Django REST Framework pour la construction d'API RESTful, implementation d'un systeme d'authentification par token, conception d'un systeme RBAC, integration de la recherche plein texte PostgreSQL.
+
+- **Developpement frontend** : Utilisation avancee de React 19 avec TypeScript, gestion d'etat et de routage avec React Router DOM, integration d'editeur riche (TinyMCE), manipulation du DOM pour le reflow multi-pages.
+
+- **Traitement d'images et OCR** : Comprehension des techniques de preprocessing d'images (CLAHE, flou gaussien, redimensionnement), utilisation d'EasyOCR pour l'extraction de texte avec detection de positions.
+
+- **Conteneurisation** : Maitrise de Docker et Docker Compose pour le deploiement multi-services, gestion des volumes et des variables d'environnement.
+
+- **Methodologie Scrum** : Pratique du decoupage en sprints, redaction de user stories, gestion du product backlog et revues de sprint.
+
+## 4. Perspectives d'amelioration
+
+Plusieurs pistes d'amelioration et d'evolution ont ete identifiees pour enrichir le systeme :
+
+- **Edition collaborative en temps reel** : L'integration de WebSockets (via Django Channels) permettrait a plusieurs utilisateurs de modifier simultanement un document, avec resolution des conflits et synchronisation en temps reel.
+
+- **Support multilangue de l'OCR** : L'ajout de la reconnaissance pour l'arabe et le francais, langues couramment utilisees en Tunisie, elargirait le champ d'application du systeme.
+
+- **Notifications** : La mise en place d'un systeme de notifications (e-mail et/ou en temps reel) lors du partage, de la modification ou de l'acces a un document ameliorerait la collaboration.
+
+- **Application mobile** : Le developpement d'une application mobile (React Native) avec acces camera pour la numerisation et la lecture de QR codes offrirait une experience utilisateur complementaire.
+
+- **Intelligence artificielle** : L'integration de modeles de traitement du langage naturel pour le resume automatique, la classification et l'extraction d'entites a partir des documents constituerait une evolution a forte valeur ajoutee.
+
+- **Tableaux de bord et statistiques** : L'ajout de visualisations (nombre de documents, activite recente, documents les plus consultes) fournirait une vue d'ensemble utile aux gestionnaires.
+
+- **Signature electronique** : L'integration d'un mecanisme de signature numerique renforcerait la valeur juridique des documents geres par le systeme.
+
+---
+
+*Le present projet de stage a permis de developper un systeme de gestion documentaire fonctionnel et complet, repondant aux objectifs fixes. L'adoption de la methodologie Scrum a structure le travail en trois sprints coherents, chacun aboutissant a un ensemble de fonctionnalites operationnelles. Les technologies modernes utilisees (Django, React, PostgreSQL, EasyOCR, Docker) constituent une base solide pour les evolutions futures du systeme.*

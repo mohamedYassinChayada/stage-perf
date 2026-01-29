@@ -17,11 +17,12 @@ import {
   searchByQRFile
 } from '../services/documentService';
 import type { Document, Label, Collection } from '../services/documentService';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
 import './DocumentsPage.css';
 
 const DocumentsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -343,61 +344,33 @@ const DocumentsPage: React.FC = () => {
 
   const handleQRScanResult = async (qrData: string): Promise<void> => {
     console.log('🔍 QR Scanner - Raw QR Data:', qrData);
-    
+
     try {
-      let potentialCodes: string[] = [];
-      potentialCodes.push(qrData.trim());
-      
+      // Extract the QR code from the URL pattern
       const urlMatch = qrData.match(/\/qr\/resolve\/([^\/\?]+)/);
-      if (urlMatch) {
-        potentialCodes.push(urlMatch[1]);
-      }
-      
-      if (qrData.includes('/')) {
-        const lastPart = qrData.split('/').pop()?.trim();
-        if (lastPart && lastPart !== qrData.trim()) {
-          potentialCodes.push(lastPart);
+      const code = urlMatch ? urlMatch[1] : qrData.trim();
+
+      console.log('🔑 QR Scanner - Extracted code:', code);
+
+      const token = localStorage.getItem('token');
+      const apiUrl = `http://127.0.0.1:8000/api/qr/resolve/${encodeURIComponent(code)}/`;
+
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
         }
+      });
+
+      if (response.ok) {
+        const resolveData = await response.json();
+        console.log('✅ QR Resolution Success:', resolveData);
+
+        navigate(`/documents/${resolveData.document_id}`);
+      } else {
+        throw new Error(`QR resolution failed (${response.status})`);
       }
-      
-      potentialCodes = [...new Set(potentialCodes.filter(code => code && code.length > 0))];
-      
-      let documentFound = false;
-      let lastError: Error | null = null;
-      
-      for (const codeToTry of potentialCodes) {
-        try {
-          const token = localStorage.getItem('token');
-          const apiUrl = `http://127.0.0.1:8000/api/qr/resolve/${encodeURIComponent(codeToTry)}/`;
-          
-          const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Token ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (response.ok) {
-            const resolveData = await response.json();
-            console.log('✅ QR Resolution Success:', resolveData);
-            
-            window.open(`/documents/${resolveData.document_id}`, '_blank');
-            documentFound = true;
-            break;
-          } else {
-            lastError = new Error(`QR resolution failed (${response.status})`);
-            if (response.status !== 404) break;
-          }
-        } catch (codeError) {
-          lastError = codeError as Error;
-        }
-      }
-      
-      if (!documentFound) {
-        throw new Error(`QR code not recognized. ${lastError?.message || ''}`);
-      }
-      
     } catch (error) {
       console.error('❌ QR Scanner Error:', error);
       alert(`QR Scan Failed: ${(error as Error).message}`);

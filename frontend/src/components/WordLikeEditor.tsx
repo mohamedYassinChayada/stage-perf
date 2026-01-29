@@ -468,10 +468,10 @@ const WordLikeEditor = React.forwardRef<WordLikeEditorHandle, WordLikeEditorProp
           .word-page:last-of-type { break-after: auto; }
           .qr-watermark {
             position: absolute;
-            top: 5mm;
-            left: 5mm;
-            width: 35mm;
-            height: 35mm;
+            top: 2mm;
+            left: 2mm;
+            width: 18mm;
+            height: 18mm;
             opacity: 0.15;
             z-index: 0;
             background-image: url('${qrCodeUrl}');
