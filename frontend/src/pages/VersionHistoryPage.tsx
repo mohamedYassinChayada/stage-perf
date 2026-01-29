@@ -7,6 +7,7 @@ import {
   getDocument
 } from '../services/documentService';
 import type { Document, Version, VersionDetail } from '../services/documentService';
+import { showSnackbar } from '../components/Snackbar';
 
 const VersionHistoryPage: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>();
@@ -50,7 +51,7 @@ const VersionHistoryPage: React.FC = () => {
       setSelectedVersion(versionDetail);
       setPreviewMode(true);
     } catch (err) {
-      alert(`Failed to load version details: ${(err as Error).message}`);
+      showSnackbar(`Failed to load version details: ${(err as Error).message}`, 'error');
     }
   };
 
@@ -65,14 +66,14 @@ const VersionHistoryPage: React.FC = () => {
     try {
       setRestoring(true);
       await restoreDocumentVersion(documentId!, version.id, changeNote);
-      alert('Document restored successfully! The page will reload to show the updated document.');
+      showSnackbar('Document restored successfully!', 'success');
       
       await loadData();
       setPreviewMode(false);
       setSelectedVersion(null);
       
     } catch (err) {
-      alert(`Failed to restore version: ${(err as Error).message}`);
+      showSnackbar(`Failed to restore version: ${(err as Error).message}`, 'error');
     } finally {
       setRestoring(false);
     }

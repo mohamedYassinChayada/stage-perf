@@ -1,66 +1,69 @@
 /* Groups Page Styles */
 
 .groups-page {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 20px 24px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
-/* Page Header */
+/* Compact inline header */
 .groups-page-header {
-  background: linear-gradient(135deg, #2b579a 0%, #1e3d72 100%);
-  color: white;
-  padding: 28px 32px;
-  border-radius: 14px;
-  margin-bottom: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 4px 12px rgba(43, 87, 154, 0.2);
+  margin-bottom: 16px;
 }
 
 .groups-page-header h2 {
   margin: 0;
-  font-size: 1.6rem;
+  font-size: 1.25rem;
   font-weight: 700;
+  color: #1a202c;
 }
 
 .groups-header-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .groups-header-btn {
-  padding: 9px 18px;
-  border-radius: 8px;
-  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   text-decoration: none;
-  font-size: 0.9rem;
-  border: none;
+  font-size: 0.8rem;
+  border: 1px solid #dee2e6;
+  background: white;
+  color: #495057;
+}
+
+.groups-header-btn:hover {
+  background: #e9ecef;
+  color: #333;
 }
 
 .groups-header-btn-primary {
-  background: rgba(255, 255, 255, 0.95);
-  color: #2b579a;
+  background: #2b579a;
+  color: white;
+  border-color: #2b579a;
 }
 
 .groups-header-btn-primary:hover {
-  background: white;
-  transform: translateY(-1px);
+  background: #1e3d72;
+  border-color: #1e3d72;
 }
 
 .groups-header-btn-secondary {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: white;
+  color: #6c757d;
 }
 
 .groups-header-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-1px);
+  background: #e9ecef;
+  color: #333;
 }
 
 /* Loading State */
@@ -74,13 +77,13 @@
 }
 
 .groups-loading-spinner {
-  width: 44px;
-  height: 44px;
-  border: 4px solid #e9ecef;
+  width: 36px;
+  height: 36px;
+  border: 3.5px solid #e9ecef;
   border-top-color: #2b579a;
   border-radius: 50%;
   animation: groups-spin 0.8s linear infinite;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 @keyframes groups-spin {
@@ -89,7 +92,7 @@
 
 .groups-loading p {
   color: #6c757d;
-  font-size: 1rem;
+  font-size: 0.9rem;
   margin: 0;
 }
 
@@ -107,8 +110,8 @@
 /* Two-Panel Layout */
 .groups-layout {
   display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 24px;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
   align-items: start;
 }
 
@@ -116,26 +119,30 @@
 .groups-list-panel {
   background: white;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .groups-list-header {
-  padding: 18px 20px;
+  padding: 12px 14px;
   border-bottom: 1px solid #e9ecef;
   background: #f8f9fb;
 }
 
 .groups-list-header h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #1a202c;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .groups-list-body {
-  padding: 12px;
+  padding: 8px 10px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
 }
 
 .groups-empty {
@@ -213,20 +220,20 @@
 .groups-detail-panel {
   background: white;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .groups-detail-header {
-  padding: 18px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid #e9ecef;
   background: #f8f9fb;
 }
 
 .groups-detail-header h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: #1a202c;
 }
@@ -468,12 +475,6 @@
 @media (max-width: 800px) {
   .groups-layout {
     grid-template-columns: 1fr;
-  }
-
-  .groups-page-header {
-    flex-direction: column;
-    gap: 14px;
-    text-align: center;
   }
 
   .groups-modal {

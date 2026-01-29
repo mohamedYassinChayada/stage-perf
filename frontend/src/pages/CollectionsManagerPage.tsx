@@ -10,6 +10,7 @@ import {
 } from '../services/documentService';
 import type { Document, Collection, CollectionDetail } from '../services/documentService';
 import { Link } from 'react-router-dom';
+import { showSnackbar } from '../components/Snackbar';
 import './CollectionsManagerPage.css';
 
 interface CollectionNode extends Collection {
@@ -224,7 +225,7 @@ const CollectionsManagerPage: React.FC = () => {
       setDocuments(docs || []);
     } catch (error) {
       console.error('Error loading data:', error);
-      alert('Failed to load data: ' + (error as Error).message);
+      showSnackbar('Failed to load data: ' + (error as Error).message, 'error');
     } finally {
       setLoading(false);
     }
@@ -261,9 +262,11 @@ const CollectionsManagerPage: React.FC = () => {
       }
       const next = [...existingIds, targetCollectionId];
       await setDocumentCollections(docId, next);
+      const targetCollection = collections.find(c => c.id === targetCollectionId);
+      showSnackbar(`Document added to "${targetCollection?.name || 'collection'}"`, 'success');
       await loadAll();
     } catch (e) {
-      alert((e as Error).message || 'Failed to assign document to collection');
+      showSnackbar((e as Error).message || 'Failed to assign document to collection', 'error');
     } finally {
       setSaving(false);
     }
@@ -275,10 +278,11 @@ const CollectionsManagerPage: React.FC = () => {
     try {
       setSaving(true);
       await createCollection(name, selectedCollectionId || undefined);
+      showSnackbar(`Collection "${name}" created successfully!`, 'success');
       setNewSubName('');
       await loadAll();
     } catch (e) {
-      alert((e as Error).message || 'Failed to create collection');
+      showSnackbar((e as Error).message || 'Failed to create collection', 'error');
     } finally {
       setSaving(false);
     }
@@ -333,9 +337,9 @@ const CollectionsManagerPage: React.FC = () => {
 
       await loadAll();
 
-      alert(`Collection "${deleteConfirmation.node.name}" deleted successfully!`);
+      showSnackbar(`Collection "${deleteConfirmation.node.name}" deleted successfully!`, 'success');
     } catch (error) {
-      alert('Failed to delete collection: ' + (error as Error).message);
+      showSnackbar('Failed to delete collection: ' + (error as Error).message, 'error');
     } finally {
       setSaving(false);
       setDeleteConfirmation(null);
@@ -374,7 +378,7 @@ const CollectionsManagerPage: React.FC = () => {
     <div className="collections-page">
       <header className="collections-page-header">
         <h2>Collections Manager</h2>
-        <Link to="/documents" className="btn">Back to Documents</Link>
+        <Link to="/documents" className="collections-back-link">Back to Documents</Link>
       </header>
 
       {loading ? (

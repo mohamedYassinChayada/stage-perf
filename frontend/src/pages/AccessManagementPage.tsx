@@ -6,6 +6,7 @@ import {
   listGroups, getDocumentShareLinks, createShareLink, revokeShareLink
 } from '../services/documentService';
 import type { Document, Share, User, Group, ShareLink } from '../services/documentService';
+import { showSnackbar } from '../components/Snackbar';
 
 interface AccessForm {
   subject_type: 'user' | 'group';
@@ -62,16 +63,17 @@ const AccessManagementPage: React.FC = () => {
     e.preventDefault();
     try {
       await addShare(id!, form.subject_type, form.subject_id, form.role, form.expires_at || undefined);
+      showSnackbar('Access added successfully!', 'success');
       setForm({ subject_type: 'user', subject_id: '', role: 'VIEWER', expires_at: '' });
       await load();
     } catch (e) {
-      alert((e as Error).message);
+      showSnackbar((e as Error).message || 'Failed to add access', 'error');
     }
   };
 
   const onDelete = async (shareId: number): Promise<void> => {
     if (!window.confirm('Remove access?')) return;
-    try { await deleteShare(shareId); await load(); } catch (e) { alert((e as Error).message); }
+    try { await deleteShare(shareId); showSnackbar('Access removed', 'success'); await load(); } catch (e) { showSnackbar((e as Error).message || 'Failed to remove access', 'error'); }
   };
 
   const onCreateShareLink = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -79,28 +81,30 @@ const AccessManagementPage: React.FC = () => {
     try {
       const expiresAt = shareLinkForm.expires_at || undefined;
       await createShareLink(id!, shareLinkForm.role, expiresAt);
+      showSnackbar('Share link created!', 'success');
       setShareLinkForm({ role: 'VIEWER', expires_at: '' });
       await load();
     } catch (e) {
-      alert((e as Error).message);
+      showSnackbar((e as Error).message || 'Failed to create share link', 'error');
     }
   };
 
   const onRevokeShareLink = async (shareLinkId: string): Promise<void> => {
     if (!window.confirm('Revoke this share link?')) return;
-    try { 
-      await revokeShareLink(shareLinkId); 
-      await load(); 
-    } catch (e) { 
-      alert((e as Error).message); 
+    try {
+      await revokeShareLink(shareLinkId);
+      showSnackbar('Share link revoked', 'success');
+      await load();
+    } catch (e) {
+      showSnackbar((e as Error).message || 'Failed to revoke share link', 'error');
     }
   };
 
   const copyToClipboard = (text: string): void => {
     navigator.clipboard.writeText(text).then(() => {
-      alert('Link copied to clipboard!');
+      showSnackbar('Link copied to clipboard!', 'success');
     }).catch(() => {
-      alert('Failed to copy to clipboard');
+      showSnackbar('Failed to copy to clipboard', 'error');
     });
   };
 

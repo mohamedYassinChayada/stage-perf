@@ -4,6 +4,7 @@ import type { WordLikeEditorHandle } from '../components/WordLikeEditor';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDocument, updateDocumentHtml } from '../services/documentService';
 import type { Document } from '../services/documentService';
+import { showSnackbar } from '../components/Snackbar';
 
 const DocumentEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -54,7 +55,7 @@ const DocumentEditorPage: React.FC = () => {
         }, 800); // Increased timeout to ensure editor is fully ready
       } catch (e) {
         console.error('Error loading document:', e);
-        alert('Failed to load document: ' + (e as Error).message);
+        showSnackbar('Failed to load document: ' + (e as Error).message, 'error');
         navigate('/documents');
       }
     })();
@@ -63,7 +64,7 @@ const DocumentEditorPage: React.FC = () => {
   const onSave = async (): Promise<void> => {
     if (!editorRef.current || isReadOnly) {
       if (isReadOnly) {
-        alert('Cannot save - you only have view access to this document');
+        showSnackbar('Cannot save - you only have view access to this document', 'error');
       }
       return;
     }
@@ -73,10 +74,10 @@ const DocumentEditorPage: React.FC = () => {
       const title = editorRef.current.getTitle() || doc!.title;
       const updated = await updateDocumentHtml(id!, title, html);
       setDoc(updated);
-      alert('Document saved successfully!');
+      showSnackbar('Document saved successfully!', 'success');
     } catch (e) {
       console.error('Save failed:', e);
-      alert('Save failed: ' + (e as Error).message);
+      showSnackbar('Save failed: ' + (e as Error).message, 'error');
     } finally {
       setSaving(false);
     }

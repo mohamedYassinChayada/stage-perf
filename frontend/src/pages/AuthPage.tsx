@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { FormEvent } from 'react';
 import { login, register, me, logout } from '../services/documentService';
 import { useNavigate } from 'react-router-dom';
+import { showSnackbar } from '../components/Snackbar';
 import './AuthPage.css';
 
 const AuthPage: React.FC = () => {
@@ -27,7 +28,7 @@ const AuthPage: React.FC = () => {
       navigate('/documents');
     } catch (err) {
       setStatus('Failed');
-      alert((err as Error).message);
+      showSnackbar((err as Error).message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -35,12 +36,12 @@ const AuthPage: React.FC = () => {
 
   const checkMe = async (): Promise<void> => {
     const data = await me();
-    alert(JSON.stringify(data));
+    showSnackbar(`Logged in as: ${data?.username || 'unknown'}`, 'info');
   };
 
   const doLogout = async (): Promise<void> => {
     await logout();
-    alert('Logged out');
+    showSnackbar('Logged out successfully', 'success');
   };
 
   const statusClass = status === 'Working...' ? 'working' : status === 'Success' ? 'success' : status === 'Failed' ? 'failed' : '';

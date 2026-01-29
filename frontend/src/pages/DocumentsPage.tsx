@@ -19,6 +19,7 @@ import {
 import type { Document, Label, Collection } from '../services/documentService';
 import { Link, useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
+import { showSnackbar } from '../components/Snackbar';
 import './DocumentsPage.css';
 
 const DocumentsPage: React.FC = () => {
@@ -77,7 +78,7 @@ const DocumentsPage: React.FC = () => {
     e.preventDefault();
     
     if (!selectedFile || !documentTitle.trim()) {
-      alert('Please provide both a title and a file.');
+      showSnackbar('Please provide both a title and a file.', 'error');
       return;
     }
 
@@ -93,9 +94,9 @@ const DocumentsPage: React.FC = () => {
       setSelectedFile(null);
       setShowCreateForm(false);
       
-      alert('Document created successfully with QR code!');
+      showSnackbar('Document created successfully with QR code!', 'success');
     } catch (err) {
-      alert('Failed to create document: ' + (err as Error).message);
+      showSnackbar('Failed to create document: ' + (err as Error).message, 'error');
       console.error('Error creating document:', err);
     } finally {
       setCreating(false);
@@ -110,9 +111,9 @@ const DocumentsPage: React.FC = () => {
     try {
       await deleteDocument(documentId);
       setDocuments(prev => prev.filter(doc => doc.id !== documentId));
-      alert('Document deleted successfully!');
+      showSnackbar('Document deleted successfully!', 'success');
     } catch (err) {
-      alert('Failed to delete document: ' + (err as Error).message);
+      showSnackbar('Failed to delete document: ' + (err as Error).message, 'error');
       console.error('Error deleting document:', err);
     }
   };
@@ -158,7 +159,7 @@ const DocumentsPage: React.FC = () => {
       await setDocumentLabels(docId, labelSelection);
       await loadDocuments();
       setLabelManagerDocId(null);
-    } catch { alert('Failed to save labels'); }
+    } catch { showSnackbar('Failed to save labels', 'error'); }
   };
 
   const addLabel = async (): Promise<void> => {
@@ -168,7 +169,7 @@ const DocumentsPage: React.FC = () => {
       setNewLabelName('');
       await loadLabels();
       setLabelSelection(prev => [...prev, created.id]);
-    } catch { alert('Failed to create label'); }
+    } catch { showSnackbar('Failed to create label', 'error'); }
   };
 
   // Collections
@@ -196,7 +197,7 @@ const DocumentsPage: React.FC = () => {
       await setDocumentCollections(docId, collectionSelection);
       await loadDocuments();
       setCollectionManagerDocId(null);
-    } catch { alert('Failed to save collections'); }
+    } catch { showSnackbar('Failed to save collections', 'error'); }
   };
 
   // QR Camera Scanner Functions
@@ -240,7 +241,7 @@ const DocumentsPage: React.FC = () => {
 
     } catch (error) {
       console.error('Error starting camera:', error);
-      alert('Failed to access camera. Please check permissions and try again.');
+      showSnackbar('Failed to access camera. Please check permissions and try again.', 'error');
       setShowCameraScanner(false);
       setIsScanning(false);
       isScanningRef.current = false;
@@ -373,7 +374,7 @@ const DocumentsPage: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ QR Scanner Error:', error);
-      alert(`QR Scan Failed: ${(error as Error).message}`);
+      showSnackbar(`QR Scan Failed: ${(error as Error).message}`, 'error');
       loadDocuments();
     }
   };
@@ -420,7 +421,7 @@ const DocumentsPage: React.FC = () => {
           <h3 style={{ marginBottom: 8 }}>Search</h3>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input placeholder="Search by title…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            <button className="btn btn-secondary" onClick={async () => { try { const res = await searchStandard(searchQuery, searchLabels); setDocuments(res); } catch (e) { alert((e as Error).message || 'Search failed'); } }}>Search</button>
+            <button className="btn btn-secondary" onClick={async () => { try { const res = await searchStandard(searchQuery, searchLabels); setDocuments(res); } catch (e) { showSnackbar((e as Error).message || 'Search failed', 'error'); } }}>Search</button>
             <button className="btn" onClick={() => { setSearchQuery(''); setSearchLabels([]); loadDocuments(); }}>Clear</button>
           </div>
           <div style={{ marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -433,10 +434,10 @@ const DocumentsPage: React.FC = () => {
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input placeholder="Deep search (content)…" value={deepQuery} onChange={e => setDeepQuery(e.target.value)} />
-            <button className="btn btn-secondary" onClick={async () => { try { if (!deepQuery.trim()) return; const res = await searchDeep(deepQuery.trim()); setDocuments(res); } catch (e) { alert((e as Error).message || 'Deep search failed'); } }}>Deep search</button>
+            <button className="btn btn-secondary" onClick={async () => { try { if (!deepQuery.trim()) return; const res = await searchDeep(deepQuery.trim()); setDocuments(res); } catch (e) { showSnackbar((e as Error).message || 'Deep search failed', 'error'); } }}>Deep search</button>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <input type="file" accept="image/*" onChange={e => setQrFile(e.target.files?.[0] || null)} />
-              <button className="btn btn-secondary" disabled={!qrFile} onClick={async () => { try { const { document } = await searchByQRFile(qrFile!); setDocuments([document]); } catch (e) { alert((e as Error).message || 'QR search failed'); } }}>Search by QR File</button>
+              <button className="btn btn-secondary" disabled={!qrFile} onClick={async () => { try { const { document } = await searchByQRFile(qrFile!); setDocuments([document]); } catch (e) { showSnackbar((e as Error).message || 'QR search failed', 'error'); } }}>Search by QR File</button>
               <button 
                 className="btn btn-primary" 
                 onClick={startCameraScanner}

@@ -6,6 +6,7 @@ import {
   getGroupMembers, addGroupMembers, removeGroupMember, listUsers
 } from '../services/documentService';
 import type { Group, User, GroupMember } from '../services/documentService';
+import { showSnackbar } from '../components/Snackbar';
 import './GroupsPage.css';
 
 interface CreateForm {
@@ -69,11 +70,12 @@ const GroupsPage: React.FC = () => {
     e.preventDefault();
     try {
       await createGroup(createForm.name);
+      showSnackbar(`Group "${createForm.name}" created successfully!`, 'success');
       setCreateForm({ name: '' });
       setShowCreateForm(false);
       await loadGroups();
     } catch (e) {
-      alert((e as Error).message);
+      showSnackbar((e as Error).message || 'Failed to create group', 'error');
     }
   };
 
@@ -81,12 +83,13 @@ const GroupsPage: React.FC = () => {
     if (!window.confirm('Delete this group? This will remove all group memberships.')) return;
     try {
       await deleteGroup(groupId);
+      showSnackbar('Group deleted successfully!', 'success');
       if (selectedGroup && selectedGroup.id === groupId) {
         setSelectedGroup(null);
       }
       await loadGroups();
     } catch (e) {
-      alert((e as Error).message);
+      showSnackbar((e as Error).message || 'Failed to delete group', 'error');
     }
   };
 
@@ -96,11 +99,12 @@ const GroupsPage: React.FC = () => {
 
     try {
       await addGroupMembers(selectedGroup.id, addMemberForm.userIds);
+      showSnackbar('Members added successfully!', 'success');
       setAddMemberForm({ userIds: [] });
       await loadGroupMembers(selectedGroup.id);
       await loadGroups();
     } catch (e) {
-      alert((e as Error).message);
+      showSnackbar((e as Error).message || 'Failed to add members', 'error');
     }
   };
 
@@ -108,10 +112,11 @@ const GroupsPage: React.FC = () => {
     if (!window.confirm('Remove this user from the group?')) return;
     try {
       await removeGroupMember(selectedGroup!.id, userId);
+      showSnackbar('Member removed successfully!', 'success');
       await loadGroupMembers(selectedGroup!.id);
       await loadGroups();
     } catch (e) {
-      alert((e as Error).message);
+      showSnackbar((e as Error).message || 'Failed to remove member', 'error');
     }
   };
 

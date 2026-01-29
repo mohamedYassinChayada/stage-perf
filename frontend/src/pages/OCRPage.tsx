@@ -6,6 +6,7 @@ import type { WordLikeEditorHandle } from '../components/WordLikeEditor';
 import { extractTextFromFile, formatOCRForTinyMCE, isSupportedFileType, formatFileSize } from '../services/ocrService';
 import type { OCRResult } from '../services/ocrService';
 import { createDocumentFromOCR, getDocument } from '../services/documentService';
+import { showSnackbar } from '../components/Snackbar';
 import './OCRPage.css';
 
 const OCRPage: React.FC = () => {
@@ -273,16 +274,15 @@ const OCRPage: React.FC = () => {
         htmlContent
       );
 
-      setSuccess(`Document "${documentTitle}" saved successfully with QR code! Document ID: ${savedDocument.id}`);
-      
-      // Optional: Clear form after successful save
+      showSnackbar(`Document "${documentTitle}" saved successfully with QR code! (ID: ${savedDocument.id})`, 'success');
+
+      // Clear form after successful save
       setTimeout(() => {
         clearFile();
-        setSuccess('');
-      }, 5000);
+      }, 3000);
 
     } catch (err) {
-      setError('Failed to save document: ' + (err as Error).message);
+      showSnackbar('Failed to save document: ' + (err as Error).message, 'error');
       console.error('Error saving document:', err);
     } finally {
       setIsSaving(false);

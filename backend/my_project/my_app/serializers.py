@@ -234,12 +234,14 @@ class DocumentListSerializer(serializers.ModelSerializer):
     """
     qr_code_url = serializers.SerializerMethodField()
     owner_username = serializers.SerializerMethodField()
+    labels = serializers.SerializerMethodField()
+    collections = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
         fields = [
             'id', 'title', 'qr_code', 'qr_code_url', 'created_at', 'updated_at',
-            'owner_username'
+            'owner_username', 'labels', 'collections'
         ]
         read_only_fields = ['id', 'qr_code', 'created_at', 'updated_at']
 
@@ -257,6 +259,14 @@ class DocumentListSerializer(serializers.ModelSerializer):
         if obj.owner:
             return obj.owner.username
         return 'Unknown'
+
+    def get_labels(self, obj):
+        items = Label.objects.filter(documentlabel__document=obj).values('id', 'name')
+        return list(items)
+
+    def get_collections(self, obj):
+        items = Collection.objects.filter(documentcollection__document=obj).values('id', 'name', 'parent_id')
+        return list(items)
 
 
 class DocumentCreateSerializer(serializers.ModelSerializer):

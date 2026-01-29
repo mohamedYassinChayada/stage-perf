@@ -8,12 +8,14 @@ import DocumentsPage from './pages/DocumentsPage';
 import DocumentEditorPage from './pages/DocumentEditorPage';
 import AuthPage from './pages/AuthPage';
 import { me, logout, createDocumentFromHTML } from './services/documentService';
+import { showSnackbar } from './components/Snackbar';
 import CollectionsManagerPage from './pages/CollectionsManagerPage';
 import AccessManagementPage from './pages/AccessManagementPage';
 import GroupsPage from './pages/GroupsPage';
 import ShareLinkPage from './pages/ShareLinkPage';
 import AuditLogPage from './pages/AuditLogPage';
 import VersionHistoryPage from './pages/VersionHistoryPage';
+import SnackbarContainer from './components/Snackbar';
 
 interface UserInfo {
   authenticated: boolean;
@@ -99,45 +101,31 @@ const Navigation: React.FC = () => {
 // Home page component
 const HomePage: React.FC = () => {
   const [isSaving, setIsSaving] = React.useState(false);
-  const [success, setSuccess] = React.useState('');
-  const [error, setError] = React.useState('');
   const editorRef = React.useRef<WordLikeEditorHandle>(null);
 
   const saveDocument = async (): Promise<void> => {
     if (!editorRef.current) {
-      setError('Editor not ready. Please try again.');
+      showSnackbar('Editor not ready. Please try again.', 'error');
       return;
     }
 
     try {
       setIsSaving(true);
-      setError('');
-      setSuccess('');
 
-      // Get document title from the editor (WordLikeEditor has its own title input)
       const editorTitle = editorRef.current.getTitle();
       const finalTitle = editorTitle && editorTitle.trim() ? editorTitle : 'Untitled Document';
-
-      // Get HTML content from the editor
       const htmlContent = editorRef.current.getContent();
-      
+
       if (!htmlContent || htmlContent.trim() === '' || htmlContent === '<div class="word-page" data-page="1"><div class="word-page-content"><p><br></p></div></div>') {
-        setError('Document is empty. Please add some content before saving.');
+        showSnackbar('Document is empty. Please add some content before saving.', 'error');
         return;
       }
 
-      // Create document with QR code
       const savedDocument = await createDocumentFromHTML(finalTitle, htmlContent);
-
-      setSuccess(`Document "${finalTitle}" saved successfully with QR code! Document ID: ${savedDocument.id}`);
-      
-      // Clear success message after 5 seconds
-      setTimeout(() => {
-        setSuccess('');
-      }, 5000);
+      showSnackbar(`Document "${finalTitle}" saved successfully! (ID: ${savedDocument.id})`, 'success');
 
     } catch (err) {
-      setError('Failed to save document: ' + (err as Error).message);
+      showSnackbar('Failed to save document: ' + (err as Error).message, 'error');
       console.error('Error saving document:', err);
     } finally {
       setIsSaving(false);
@@ -150,11 +138,9 @@ const HomePage: React.FC = () => {
         <h1>Microsoft Word-Like Document Editor</h1>
         <p>Create and edit documents with professional formatting</p>
       </header>
-      
-      {/* Save Document Section */}
+
       <div className="document-save-section" style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-        {/* Save Button */}
-        <button 
+        <button
           onClick={saveDocument}
           disabled={isSaving}
           style={{
@@ -172,54 +158,25 @@ const HomePage: React.FC = () => {
         >
           {isSaving ? (
             <>
-              <span style={{ 
-                display: 'inline-block', 
-                width: '16px', 
-                height: '16px', 
-                border: '2px solid #ffffff', 
-                borderTop: '2px solid transparent', 
-                borderRadius: '50%', 
-                animation: 'spin 1s linear infinite' 
+              <span style={{
+                display: 'inline-block',
+                width: '16px',
+                height: '16px',
+                border: '2px solid #ffffff',
+                borderTop: '2px solid transparent',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
               }}></span>
               Saving Document...
             </>
           ) : (
-            <>
-              💾 Save as Document with QR Code
-            </>
+            '\uD83D\uDCBE Save as Document with QR Code'
           )}
         </button>
-
-        {/* Success/Error Messages */}
-        {success && (
-          <div style={{ 
-            marginTop: '10px', 
-            padding: '10px', 
-            backgroundColor: '#d4edda', 
-            border: '1px solid #c3e6cb', 
-            borderRadius: '4px', 
-            color: '#155724' 
-          }}>
-            {success}
-          </div>
-        )}
-        
-        {error && (
-          <div style={{ 
-            marginTop: '10px', 
-            padding: '10px', 
-            backgroundColor: '#f8d7da', 
-            border: '1px solid #f5c6cb', 
-            borderRadius: '4px', 
-            color: '#721c24' 
-          }}>
-            {error}
-          </div>
-        )}
       </div>
 
       <main className="editor-container">
-        <WordLikeEditor 
+        <WordLikeEditor
           ref={editorRef}
           initialTitle="Untitled Document"
         />
@@ -248,6 +205,7 @@ const App: React.FC = () => {
             <Route path="/share/:token" element={<ShareLinkPage />} />
           </Routes>
         </div>
+        <SnackbarContainer />
       </div>
     </Router>
   );
