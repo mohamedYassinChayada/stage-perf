@@ -21,7 +21,11 @@
       "Bash(npm run build:*)",
       "Bash(dir:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx vite build)"
+      "Bash(npx vite build)",
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(python:*)",
+      "Bash(DJANGO_SETTINGS_MODULE=my_project.settings python:*)"
     ]
   }
 }

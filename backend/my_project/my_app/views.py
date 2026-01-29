@@ -752,7 +752,7 @@ def document_qr_code(request, pk):
     try:
         document = get_object_or_404(Document, pk=pk)
 
-        if not document.qr_code:
+        if not document.qr_code_data:
             return Response(
                 {
                     "error": "QR code not found for this document",
@@ -761,22 +761,11 @@ def document_qr_code(request, pk):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        # Return the QR code image
-        try:
-            with open(document.qr_code.path, 'rb') as qr_file:
-                response = HttpResponse(qr_file.read(), content_type='image/png')
-                response['Content-Disposition'] = f'inline; filename="document_{pk}_qr.png"'
-                return response
-        except FileNotFoundError:
-            return Response(
-                {
-                    "error": "QR code file not found on disk",
-                    "error_code": "QR_CODE_FILE_NOT_FOUND",
-                    "details": {"document_id": pk}
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
+
+        # Return the QR code image from database binary data
+        response = HttpResponse(bytes(document.qr_code_data), content_type='image/png')
+        response['Content-Disposition'] = f'inline; filename="document_{pk}_qr.png"'
+        return response
             
     except Exception as e:
         logger.error(f"Error retrieving QR code for document {pk}: {str(e)}")

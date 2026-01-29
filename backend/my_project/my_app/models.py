@@ -2,7 +2,6 @@ from django.db import models
 from django.urls import reverse
 from django.conf import settings
 from django.contrib.postgres.search import SearchVectorField
-import os
 import uuid
 
 
@@ -41,8 +40,8 @@ class Document(models.Model):
 	search_tsv = SearchVectorField(null=True, help_text="Full-text search vector")
 	owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.RESTRICT, related_name='owned_documents', null=True, blank=True)
 	current_version_no = models.IntegerField(default=1, help_text="Current version number")
-	# Backward compatibility for existing QR image file (to be phased out in favor of QRLink)
-	qr_code = models.ImageField(upload_to='qrcodes/', blank=True, null=True, help_text="Generated QR code image for this document (legacy)")
+	# QR code image stored as binary in the database (Neon cloud DB)
+	qr_code_data = models.BinaryField(blank=True, null=True, help_text="QR code PNG image stored as binary in the database")
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
@@ -66,13 +65,6 @@ class Document(models.Model):
 		return f"{base_url}/api/documents/{self.id}/"
 
 	def delete(self, *args, **kwargs):
-		# Delete legacy QR code image
-		if self.qr_code:
-			try:
-				if os.path.isfile(self.qr_code.path):
-					os.remove(self.qr_code.path)
-			except Exception:
-				pass
 		super().delete(*args, **kwargs)
 
 

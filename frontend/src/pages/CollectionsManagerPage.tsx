@@ -32,6 +32,25 @@ const buildCollectionTree = (collections: Collection[]): CollectionNode[] => {
   return roots;
 };
 
+const TrashIcon: React.FC<{ size?: number }> = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
+
+const FolderIcon: React.FC<{ open?: boolean }> = ({ open }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill={open ? '#2b579a' : '#6c757d'} stroke="none">
+    {open ? (
+      <path d="M20 19a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16z" />
+    ) : (
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    )}
+  </svg>
+);
+
 interface CollectionNodeProps {
   node: CollectionNode;
   selectedId: number | null;
@@ -103,13 +122,12 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
   return (
     <div style={{ marginLeft: level * 18 }}>
       <div
-        className={`collections-tree-node ${isSelected ? 'selected' : ''}`}
-        style={isDragOver ? { background: '#dbeafe', borderColor: '#3b82f6' } : undefined}
+        className={`collections-tree-node ${isSelected ? 'selected' : ''} ${isDragOver ? 'dragover' : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {hasChildren && (
+        {hasChildren ? (
           <button
             className="collections-tree-toggle"
             onClick={handleToggleCollapse}
@@ -117,10 +135,12 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
           >
             {isCollapsed ? '\u25B6' : '\u25BC'}
           </button>
+        ) : (
+          <span className="collections-tree-toggle-spacer" />
         )}
 
         <button className="collections-tree-name" onClick={handleSelect}>
-          <span>{isCollapsed ? '\uD83D\uDCC1' : '\uD83D\uDCC2'}</span>
+          <FolderIcon open={isSelected || !isCollapsed} />
           <span>{node.name}</span>
           {isSelected && details && (
             <span className="collections-tree-badge">
@@ -129,16 +149,16 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
             </span>
           )}
           {loadingDetails && isSelected && (
-            <span style={{ fontSize: '0.7rem', color: '#adb5bd' }}>\u27F3</span>
+            <span className="collections-tree-loading-dot" />
           )}
         </button>
 
         <button
           className="collections-tree-delete"
           onClick={handleDelete}
-          title={`Delete collection "${node.name}" and all sub-collections`}
+          title={`Delete "${node.name}"`}
         >
-          \uD83D\uDDD1\uFE0F
+          <TrashIcon size={14} />
         </button>
       </div>
 
@@ -278,7 +298,7 @@ const CollectionsManagerPage: React.FC = () => {
     try {
       setSaving(true);
       await createCollection(name, selectedCollectionId || undefined);
-      showSnackbar(`Collection "${name}" created successfully!`, 'success');
+      showSnackbar(`Collection "${name}" created`, 'success');
       setNewSubName('');
       await loadAll();
     } catch (e) {
@@ -314,12 +334,12 @@ const CollectionsManagerPage: React.FC = () => {
 
     setDeleteConfirmation({
       node,
-      title: `Delete Collection "${node.name}"?`,
+      title: `Delete "${node.name}"?`,
       message: hasSubCollections
-        ? `This will delete "${node.name}" and all ${totalCollections - 1} of its sub-collections. Documents will NOT be deleted, only unlinked from these collections.`
-        : `This will delete the collection "${node.name}". Documents will NOT be deleted, only unlinked from this collection.`,
+        ? `This will delete "${node.name}" and all ${totalCollections - 1} sub-collections. Documents will NOT be deleted, only unlinked.`
+        : `This will delete "${node.name}". Documents will NOT be deleted, only unlinked.`,
       details: hasSubCollections
-        ? `Warning: This will delete ${totalCollections} collection${totalCollections === 1 ? '' : 's'} in total.`
+        ? `${totalCollections} collection${totalCollections === 1 ? '' : 's'} will be removed.`
         : null
     });
   };
@@ -337,7 +357,7 @@ const CollectionsManagerPage: React.FC = () => {
 
       await loadAll();
 
-      showSnackbar(`Collection "${deleteConfirmation.node.name}" deleted successfully!`, 'success');
+      showSnackbar(`Collection "${deleteConfirmation.node.name}" deleted`, 'success');
     } catch (error) {
       showSnackbar('Failed to delete collection: ' + (error as Error).message, 'error');
     } finally {
@@ -374,33 +394,49 @@ const CollectionsManagerPage: React.FC = () => {
     }
   };
 
+  const handleRemoveDocFromCollection = async (docId: number): Promise<void> => {
+    if (!selectedCollectionId) return;
+    try {
+      setSaving(true);
+      const doc = documents.find(d => d.id === docId);
+      const existingIds = Array.isArray(doc?.collections) ? doc.collections.map(c => c.id) : [];
+      const next = existingIds.filter(id => id !== selectedCollectionId);
+      await setDocumentCollections(docId, next);
+      showSnackbar('Document removed from collection', 'success');
+      await loadAll();
+    } catch (e) {
+      showSnackbar((e as Error).message || 'Failed to remove document', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="collections-page">
-      <header className="collections-page-header">
-        <h2>Collections Manager</h2>
-        <Link to="/documents" className="collections-back-link">Back to Documents</Link>
-      </header>
-
       {loading ? (
         <div className="collections-loading">
-          <div className="collections-loading-spinner"></div>
-          <p>Loading collections and documents...</p>
+          <div className="collections-loading-spinner" />
+          <p>Loading collections...</p>
         </div>
       ) : (
         <div className="collections-layout">
           {/* Tree Panel */}
           <div className="collections-tree-panel">
             <div className="collections-tree-header">
-              <h3>Collections Tree</h3>
+              <h3>Collections</h3>
               <div className="collections-tree-actions">
-                <button className="collections-tree-action-btn" onClick={expandAll} title="Expand all collections">
-                  Expand All
+                <button className="collections-tree-action-btn" onClick={expandAll} title="Expand all">
+                  Expand
                 </button>
-                <button className="collections-tree-action-btn" onClick={collapseAll} title="Collapse all collections">
-                  Collapse All
+                <button className="collections-tree-action-btn" onClick={collapseAll} title="Collapse all">
+                  Collapse
                 </button>
-                <button className="collections-tree-action-btn" onClick={() => setSelectedCollectionId(null)} title="Show all documents">
-                  Show All
+                <button
+                  className={`collections-tree-action-btn ${!selectedCollectionId ? 'active' : ''}`}
+                  onClick={() => setSelectedCollectionId(null)}
+                  title="Show all documents"
+                >
+                  All
                 </button>
               </div>
             </div>
@@ -408,6 +444,7 @@ const CollectionsManagerPage: React.FC = () => {
             <div className="collections-tree-body">
               {tree.length === 0 ? (
                 <div className="collections-tree-empty">
+                  <FolderIcon />
                   <p>No collections yet</p>
                   <p>Create your first collection below</p>
                 </div>
@@ -430,14 +467,14 @@ const CollectionsManagerPage: React.FC = () => {
             <div className="collections-create-section">
               <span className="collections-create-label">
                 {selectedCollection
-                  ? `Add sub-collection under "${selectedCollection.name}"`
-                  : 'Add top-level collection'
+                  ? `New sub-collection in "${selectedCollection.name}"`
+                  : 'New top-level collection'
                 }
               </span>
               <div className="collections-create-form">
                 <input
                   className="collections-create-input"
-                  placeholder="New collection name"
+                  placeholder="Collection name..."
                   value={newSubName}
                   onChange={e => setNewSubName(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -447,7 +484,7 @@ const CollectionsManagerPage: React.FC = () => {
                   disabled={saving || !newSubName.trim()}
                   onClick={onCreateSubCollection}
                 >
-                  {saving ? '\u27F3' : 'Add'}
+                  {saving ? 'Adding...' : 'Add'}
                 </button>
               </div>
             </div>
@@ -456,17 +493,19 @@ const CollectionsManagerPage: React.FC = () => {
           {/* Documents Panel */}
           <div className="collections-docs-panel">
             <div className="collections-docs-header">
-              <h3>
-                {selectedCollection ? `Documents in "${selectedCollection.name}"` : 'All Documents'}
-              </h3>
-              <p className="collections-docs-subtitle">
-                {documentsInSelected.length} document{documentsInSelected.length === 1 ? '' : 's'}
-                {selectedCollection && (
-                  <span className="collections-docs-hint">
-                    Drag documents onto collections to organize them
-                  </span>
-                )}
-              </p>
+              <div className="collections-docs-header-top">
+                <h3>
+                  {selectedCollection ? selectedCollection.name : 'All Documents'}
+                </h3>
+                <span className="collections-docs-count">
+                  {documentsInSelected.length} document{documentsInSelected.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              {selectedCollection && (
+                <p className="collections-docs-hint">
+                  Drag documents onto collections in the sidebar to organize them
+                </p>
+              )}
             </div>
 
             <div className="collections-docs-grid">
@@ -474,13 +513,13 @@ const CollectionsManagerPage: React.FC = () => {
                 <div className="collections-docs-empty">
                   {selectedCollection ? (
                     <>
-                      <p>No documents in this collection yet</p>
-                      <p style={{ fontSize: '0.85rem' }}>Drag documents from other collections to add them here</p>
+                      <p>No documents in this collection</p>
+                      <p className="collections-docs-empty-hint">Drag documents here to add them</p>
                     </>
                   ) : (
                     <>
                       <p>No documents found</p>
-                      <Link to="/ocr">Create your first document</Link>
+                      <Link to="/ocr" className="collections-docs-empty-link">Create your first document</Link>
                     </>
                   )}
                 </div>
@@ -494,9 +533,15 @@ const CollectionsManagerPage: React.FC = () => {
                   >
                     <div className="collections-doc-card-header">
                       <strong className="collections-doc-card-title" title={doc.title}>
-                        {doc.title.length > 25 ? doc.title.substring(0, 25) + '...' : doc.title}
+                        {doc.title.length > 30 ? doc.title.substring(0, 30) + '...' : doc.title}
                       </strong>
-                      <span className="collections-doc-card-drag" title="Drag to a collection">{'\u22EE\u22EE'}</span>
+                      <span className="collections-doc-card-drag" title="Drag to a collection">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="5" r="2" /><circle cx="15" cy="5" r="2" />
+                          <circle cx="9" cy="12" r="2" /><circle cx="15" cy="12" r="2" />
+                          <circle cx="9" cy="19" r="2" /><circle cx="15" cy="19" r="2" />
+                        </svg>
+                      </span>
                     </div>
 
                     <div className="collections-doc-card-tags">
@@ -509,43 +554,29 @@ const CollectionsManagerPage: React.FC = () => {
                           ))}
                           {doc.collections.length > 3 && (
                             <span className="collections-doc-tag-more">
-                              +{doc.collections.length - 3} more
+                              +{doc.collections.length - 3}
                             </span>
                           )}
                         </>
                       ) : (
                         <span className="collections-doc-no-tags">
-                          No collections
+                          Uncategorized
                         </span>
                       )}
                     </div>
 
                     <div className="collections-doc-actions">
-                      <Link
-                        to={`/documents/${doc.id}`}
-                        className="collections-doc-action-btn"
-                      >
-                        Edit
+                      <Link to={`/documents/${doc.id}`} className="collections-doc-action-btn">
+                        Open
                       </Link>
-                      {doc.qr_code_url && (
-                        <a
-                          className="collections-doc-action-btn"
-                          href={doc.qr_code_url}
-                          target="_blank"
-                          rel="noreferrer"
+                      {selectedCollectionId && (
+                        <button
+                          className="collections-doc-action-btn collections-doc-remove-btn"
+                          onClick={() => handleRemoveDocFromCollection(doc.id)}
+                          title="Remove from this collection"
                         >
-                          QR
-                        </a>
-                      )}
-                      {doc.file_url && (
-                        <a
-                          className="collections-doc-action-btn"
-                          href={doc.file_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          File
-                        </a>
+                          Remove
+                        </button>
                       )}
                     </div>
                   </div>
@@ -568,7 +599,7 @@ const CollectionsManagerPage: React.FC = () => {
       {saving && (
         <div className="collections-saving-overlay">
           <div className="collections-saving-content">
-            <div className="collections-saving-spinner"></div>
+            <div className="collections-saving-spinner" />
             <p>Processing...</p>
           </div>
         </div>

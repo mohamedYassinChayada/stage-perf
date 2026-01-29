@@ -120,19 +120,21 @@ class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = [
-            'id', 'title', 'file_url', 'attachments', 'html', 'text', 'qr_code',
+            'id', 'title', 'file_url', 'attachments', 'html', 'text',
             'qr_code_url', 'qr_resolve_url', 'document_url', 'labels', 'collections', 'created_at', 'updated_at',
             'user_role', 'user_permissions', 'owner_username'
         ]
-        read_only_fields = ['id', 'qr_code', 'created_at', 'updated_at']
-    
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
     def get_qr_code_url(self, obj):
-        """Get the full URL for the QR code image."""
-        if obj.qr_code:
+        """Get the URL for the QR code image served from database."""
+        if obj.qr_code_data:
             request = self.context.get('request')
+            from django.urls import reverse
+            url = reverse('my_app:document_qr_code', kwargs={'pk': obj.pk})
             if request:
-                return request.build_absolute_uri(obj.qr_code.url)
-            return obj.qr_code.url
+                return request.build_absolute_uri(url)
+            return url
         return None
     
     def get_file_url(self, obj):
@@ -240,18 +242,20 @@ class DocumentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = [
-            'id', 'title', 'qr_code', 'qr_code_url', 'created_at', 'updated_at',
+            'id', 'title', 'qr_code_url', 'created_at', 'updated_at',
             'owner_username', 'labels', 'collections'
         ]
-        read_only_fields = ['id', 'qr_code', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_qr_code_url(self, obj):
-        """Get the full URL for the QR code image."""
-        if obj.qr_code:
+        """Get the URL for the QR code image served from database."""
+        if obj.qr_code_data:
             request = self.context.get('request')
+            from django.urls import reverse
+            url = reverse('my_app:document_qr_code', kwargs={'pk': obj.pk})
             if request:
-                return request.build_absolute_uri(obj.qr_code.url)
-            return obj.qr_code.url
+                return request.build_absolute_uri(url)
+            return url
         return None
 
     def get_owner_username(self, obj):
