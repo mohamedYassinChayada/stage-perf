@@ -472,7 +472,7 @@ const WordLikeEditor = React.forwardRef<WordLikeEditorHandle, WordLikeEditorProp
             left: 2mm;
             width: 18mm;
             height: 18mm;
-            opacity: 0.15;
+            opacity: 0.4;
             z-index: 0;
             background-image: url('${qrCodeUrl}');
             background-size: contain;
@@ -482,7 +482,7 @@ const WordLikeEditor = React.forwardRef<WordLikeEditorHandle, WordLikeEditorProp
         </style>
         </head>
         <body>
-          ${content.replace(/<div class="word-page"/g, '<div class="word-page"><div class="qr-watermark"></div>')}
+          ${content.replace(/<div class="word-page"[^>]*>/g, (match) => `${match}<div class="qr-watermark"></div>`)}
         </body></html>
       `);
       w.document.close();
