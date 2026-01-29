@@ -6,6 +6,7 @@ import {
 } from '../services/documentService';
 import type { Group, User, GroupMember } from '../services/documentService';
 import { showSnackbar } from '../components/Snackbar';
+import { usePageCache } from '../contexts/PageCacheContext';
 import './GroupsPage.css';
 
 const TrashIcon: React.FC<{ size?: number }> = ({ size = 16 }) => (
@@ -32,6 +33,8 @@ const PlusIcon: React.FC = () => (
 );
 
 const GroupsPage: React.FC = () => {
+  const { getGroupsCache, setGroupsCache } = usePageCache();
+
   const [groups, setGroups] = useState<Group[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,13 @@ const GroupsPage: React.FC = () => {
       const [g, u] = await Promise.all([listGroups(), listUsers()]);
       setGroups(g);
       setUsers(u);
+      setGroupsCache({
+        groups: g,
+        users: u,
+        selectedGroupId: selectedGroup?.id ?? null,
+        groupMembers,
+        timestamp: Date.now(),
+      });
     } catch (e) {
       setError((e as Error).message || 'Failed to load groups');
     } finally {
@@ -69,7 +79,20 @@ const GroupsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadGroups();
+    const cached = getGroupsCache();
+    if (cached) {
+      setGroups(cached.groups);
+      setUsers(cached.users);
+      setGroupMembers(cached.groupMembers);
+      if (cached.selectedGroupId) {
+        const g = cached.groups.find(gr => gr.id === cached.selectedGroupId) || null;
+        setSelectedGroup(g);
+      }
+      setLoading(false);
+    } else {
+      loadGroups();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -78,6 +101,19 @@ const GroupsPage: React.FC = () => {
       setSelectedUserIds([]);
     }
   }, [selectedGroup]);
+
+  // Sync cache when groups/members change
+  useEffect(() => {
+    if (groups.length > 0 || users.length > 0) {
+      setGroupsCache({
+        groups,
+        users,
+        selectedGroupId: selectedGroup?.id ?? null,
+        groupMembers,
+        timestamp: Date.now(),
+      });
+    }
+  }, [groups, users, selectedGroup, groupMembers, setGroupsCache]);
 
   const handleCreateGroup = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();

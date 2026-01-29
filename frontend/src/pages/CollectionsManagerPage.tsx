@@ -11,6 +11,7 @@ import {
 import type { Document, Collection, CollectionDetail } from '../services/documentService';
 import { Link } from 'react-router-dom';
 import { showSnackbar } from '../components/Snackbar';
+import { usePageCache } from '../contexts/PageCacheContext';
 import './CollectionsManagerPage.css';
 
 interface CollectionNode extends Collection {
@@ -226,6 +227,8 @@ interface DeleteConfirmation {
 }
 
 const CollectionsManagerPage: React.FC = () => {
+  const { getCollectionsCache, setCollectionsCache } = usePageCache();
+
   const [collections, setCollections] = useState<Collection[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
@@ -251,7 +254,32 @@ const CollectionsManagerPage: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    const cached = getCollectionsCache();
+    if (cached) {
+      setCollections(cached.collections);
+      setDocuments(cached.documents);
+      setSelectedCollectionId(cached.selectedCollectionId);
+      setCollapsedNodes(new Set(cached.collapsedNodes));
+      setLoading(false);
+    } else {
+      loadAll();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync cache when state changes
+  useEffect(() => {
+    if (collections.length > 0 || documents.length > 0) {
+      setCollectionsCache({
+        collections,
+        documents,
+        selectedCollectionId,
+        collapsedNodes: Array.from(collapsedNodes),
+        timestamp: Date.now(),
+      });
+    }
+  }, [collections, documents, selectedCollectionId, collapsedNodes, setCollectionsCache]);
 
   const selectedCollection = useMemo(
     () => collections.find(c => c.id === selectedCollectionId) || null,

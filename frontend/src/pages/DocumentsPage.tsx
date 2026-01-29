@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { 
-  getAllDocuments, 
-  deleteDocument, 
+import {
+  getDocumentsPaginated,
+  deleteDocument,
   createDocument,
   formatFileSize,
   formatDate,
@@ -20,11 +20,21 @@ import type { Document, Label, Collection } from '../services/documentService';
 import { Link, useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
 import { showSnackbar } from '../components/Snackbar';
+import { usePageCache } from '../contexts/PageCacheContext';
 import './DocumentsPage.css';
+
+const DOCS_PER_PAGE = 10;
 
 const DocumentsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const { getDocumentsCache, setDocumentsCache, clearDocumentsCache } = usePageCache();
+
+  // Pagination state
+  const [pageCache, setPageCacheState] = useState<Map<number, Document[]>>(new Map());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -42,7 +52,9 @@ const DocumentsPage: React.FC = () => {
   const [deepQuery, setDeepQuery] = useState('');
   const [searchLabels, setSearchLabels] = useState<number[]>([]);
   const [qrFile, setQrFile] = useState<File | null>(null);
-  
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchResults, setSearchResults] = useState<Document[]>([]);
+
   // QR Camera Scanner state
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -53,30 +65,119 @@ const DocumentsPage: React.FC = () => {
   const scanIntervalRef = useRef<number | null>(null);
   const isScanningRef = useRef(false);
 
-  // Load documents on component mount
-  useEffect(() => {
-    loadDocuments();
-    loadLabels();
-    loadCollections();
-  }, []);
+  // Persist cache to context whenever it changes
+  const syncCacheToContext = useCallback((
+    cache: Map<number, Document[]>,
+    page: number,
+    count: number,
+    pages: number,
+    lbls: Label[],
+    cols: Collection[]
+  ) => {
+    setDocumentsCache({
+      pageCache: new Map(cache),
+      currentPage: page,
+      totalCount: count,
+      totalPages: pages,
+      labels: lbls,
+      collections: cols,
+      timestamp: Date.now(),
+    });
+  }, [setDocumentsCache]);
 
-  const loadDocuments = async (): Promise<void> => {
+  // Load a specific page of documents
+  const loadPage = useCallback(async (page: number, forceRefresh = false): Promise<void> => {
+    // Check in-memory cache first
+    if (!forceRefresh && pageCache.has(page)) {
+      setCurrentPage(page);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      const documentsData = await getAllDocuments();
-      setDocuments(documentsData);
+      const response = await getDocumentsPaginated(page, DOCS_PER_PAGE);
+      const pages = Math.ceil(response.count / DOCS_PER_PAGE);
+
+      setPageCacheState(prev => {
+        const next = new Map(prev);
+        next.set(page, response.results);
+        return next;
+      });
+      setCurrentPage(page);
+      setTotalCount(response.count);
+      setTotalPages(pages);
     } catch (err) {
       setError('Failed to load documents: ' + (err as Error).message);
-      console.error('Error loading documents:', err);
     } finally {
       setLoading(false);
     }
+  }, [pageCache]);
+
+  const loadLabels = async (): Promise<void> => {
+    try {
+      const ls = await listLabels();
+      setLabels(ls);
+    } catch {
+      // ignore
+    }
+  };
+
+  const loadCollections = async (): Promise<void> => {
+    try {
+      const cs = await listCollections();
+      setCollections(cs);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Restore from context cache on mount, or fetch fresh
+  useEffect(() => {
+    const cached = getDocumentsCache();
+    if (cached) {
+      setPageCacheState(new Map(cached.pageCache));
+      setCurrentPage(cached.currentPage);
+      setTotalCount(cached.totalCount);
+      setTotalPages(cached.totalPages);
+      setLabels(cached.labels);
+      setCollections(cached.collections);
+      setLoading(false);
+    } else {
+      loadPage(1);
+      loadLabels();
+      loadCollections();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync cache to context when pagination state changes
+  useEffect(() => {
+    if (pageCache.size > 0 && totalCount > 0) {
+      syncCacheToContext(pageCache, currentPage, totalCount, totalPages, labels, collections);
+    }
+  }, [pageCache, currentPage, totalCount, totalPages, labels, collections, syncCacheToContext]);
+
+  // Current page documents
+  const currentDocuments = isSearchMode ? searchResults : (pageCache.get(currentPage) || []);
+
+  const goToPage = (page: number): void => {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    loadPage(page);
+  };
+
+  // Refresh current page after mutations
+  const refreshCurrentPage = async (): Promise<void> => {
+    // Clear the whole cache since counts may have changed
+    setPageCacheState(new Map());
+    clearDocumentsCache();
+    await loadPage(currentPage, true);
   };
 
   const handleCreateDocument = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-    
+
     if (!selectedFile || !documentTitle.trim()) {
       showSnackbar('Please provide both a title and a file.', 'error');
       return;
@@ -84,45 +185,39 @@ const DocumentsPage: React.FC = () => {
 
     try {
       setCreating(true);
-      const newDocument = await createDocument(documentTitle.trim(), selectedFile);
-      
-      // Add the new document to the list
-      setDocuments(prev => [newDocument, ...prev]);
-      
-      // Reset form
+      await createDocument(documentTitle.trim(), selectedFile);
+
       setDocumentTitle('');
       setSelectedFile(null);
       setShowCreateForm(false);
-      
+
       showSnackbar('Document created successfully with QR code!', 'success');
+      await refreshCurrentPage();
     } catch (err) {
       showSnackbar('Failed to create document: ' + (err as Error).message, 'error');
-      console.error('Error creating document:', err);
     } finally {
       setCreating(false);
     }
   };
 
-  const handleDeleteDocument = async (documentId: number, documentTitle: string): Promise<void> => {
-    if (!window.confirm(`Are you sure you want to delete "${documentTitle}"?`)) {
+  const handleDeleteDocument = async (documentId: number, docTitle: string): Promise<void> => {
+    if (!window.confirm(`Are you sure you want to delete "${docTitle}"?`)) {
       return;
     }
 
     try {
       await deleteDocument(documentId);
-      setDocuments(prev => prev.filter(doc => doc.id !== documentId));
       showSnackbar('Document deleted successfully!', 'success');
+      await refreshCurrentPage();
     } catch (err) {
       showSnackbar('Failed to delete document: ' + (err as Error).message, 'error');
-      console.error('Error deleting document:', err);
     }
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0] || null;
     setSelectedFile(file);
-    
-    // Auto-generate title from filename if title is empty
+
     if (file && !documentTitle.trim()) {
       const nameWithoutExtension = file.name.split('.').slice(0, -1).join('.');
       setDocumentTitle(nameWithoutExtension);
@@ -135,15 +230,6 @@ const DocumentsPage: React.FC = () => {
   };
 
   // Labels
-  const loadLabels = async (): Promise<void> => {
-    try {
-      const ls = await listLabels();
-      setLabels(ls);
-    } catch {
-      // ignore
-    }
-  };
-
   const openLabelManager = (doc: Document): void => {
     setLabelManagerDocId(doc.id);
     const current = (doc.labels || []).map(l => l.id);
@@ -157,7 +243,7 @@ const DocumentsPage: React.FC = () => {
   const saveLabels = async (docId: number): Promise<void> => {
     try {
       await setDocumentLabels(docId, labelSelection);
-      await loadDocuments();
+      await refreshCurrentPage();
       setLabelManagerDocId(null);
     } catch { showSnackbar('Failed to save labels', 'error'); }
   };
@@ -173,15 +259,6 @@ const DocumentsPage: React.FC = () => {
   };
 
   // Collections
-  const loadCollections = async (): Promise<void> => {
-    try {
-      const cs = await listCollections();
-      setCollections(cs);
-    } catch {
-      // ignore
-    }
-  };
-
   const openCollectionManager = (doc: Document): void => {
     setCollectionManagerDocId(doc.id);
     const current = (doc.collections || []).map(c => c.id);
@@ -195,52 +272,85 @@ const DocumentsPage: React.FC = () => {
   const saveCollections = async (docId: number): Promise<void> => {
     try {
       await setDocumentCollections(docId, collectionSelection);
-      await loadDocuments();
+      await refreshCurrentPage();
       setCollectionManagerDocId(null);
     } catch { showSnackbar('Failed to save collections', 'error'); }
   };
 
+  // Search handlers
+  const handleStandardSearch = async (): Promise<void> => {
+    try {
+      const res = await searchStandard(searchQuery, searchLabels);
+      setSearchResults(res);
+      setIsSearchMode(true);
+    } catch (e) {
+      showSnackbar((e as Error).message || 'Search failed', 'error');
+    }
+  };
+
+  const handleDeepSearch = async (): Promise<void> => {
+    if (!deepQuery.trim()) return;
+    try {
+      const res = await searchDeep(deepQuery.trim());
+      setSearchResults(res);
+      setIsSearchMode(true);
+    } catch (e) {
+      showSnackbar((e as Error).message || 'Deep search failed', 'error');
+    }
+  };
+
+  const handleQRFileSearch = async (): Promise<void> => {
+    if (!qrFile) return;
+    try {
+      const { document } = await searchByQRFile(qrFile);
+      setSearchResults([document]);
+      setIsSearchMode(true);
+    } catch (e) {
+      showSnackbar((e as Error).message || 'QR search failed', 'error');
+    }
+  };
+
+  const clearSearch = (): void => {
+    setSearchQuery('');
+    setDeepQuery('');
+    setSearchLabels([]);
+    setIsSearchMode(false);
+    setSearchResults([]);
+  };
+
   // QR Camera Scanner Functions
   const startCameraScanner = async (): Promise<void> => {
-    console.log('📷 Initializing QR Camera Scanner...');
-    
     try {
       setShowCameraScanner(true);
       setIsScanning(true);
       isScanningRef.current = true;
       setScanResult('');
 
-      console.log('📷 Requesting camera access...');
-      
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
+        video: {
           facingMode: 'environment',
           width: { ideal: 1280, min: 640 },
           height: { ideal: 720, min: 480 }
         }
       });
 
-      console.log('✅ Camera access granted!');
       setCameraStream(stream);
 
       setTimeout(() => {
         if (videoRef.current) {
-          console.log('📹 Setting up video element...');
           videoRef.current.srcObject = stream;
           videoRef.current.play().then(() => {
-            console.log('▶️ Video started playing');
             isScanningRef.current = true;
             setTimeout(() => {
               startQRScanning();
             }, 200);
-          }).catch((playError) => {
-            console.error('❌ Video play error:', playError);
+          }).catch(() => {
+            // video play error
           });
         }
       }, 100);
 
-    } catch (error) {
-      console.error('Error starting camera:', error);
+    } catch {
       showSnackbar('Failed to access camera. Please check permissions and try again.', 'error');
       setShowCameraScanner(false);
       setIsScanning(false);
@@ -249,20 +359,13 @@ const DocumentsPage: React.FC = () => {
   };
 
   const startQRScanning = (): void => {
-    console.log('🎬 Starting QR Scanning...');
-    
     const scanFrame = (): void => {
-      if (!videoRef.current || !canvasRef.current || !isScanningRef.current) {
-        return;
-      }
+      if (!videoRef.current || !canvasRef.current || !isScanningRef.current) return;
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        return;
-      }
+      if (!ctx) return;
 
       if (video.readyState !== video.HAVE_ENOUGH_DATA) {
         requestAnimationFrame(scanFrame);
@@ -271,21 +374,21 @@ const DocumentsPage: React.FC = () => {
 
       const width = video.videoWidth || video.clientWidth || 640;
       const height = video.videoHeight || video.clientHeight || 480;
-      
+
       if (width <= 0 || height <= 0) {
         requestAnimationFrame(scanFrame);
         return;
       }
-      
+
       canvas.width = width;
       canvas.height = height;
 
       try {
         ctx.drawImage(video, 0, 0, width, height);
-        
+
         let qrCode = null;
         let imageData: ImageData;
-        
+
         try {
           imageData = ctx.getImageData(0, 0, width, height);
         } catch {
@@ -307,9 +410,8 @@ const DocumentsPage: React.FC = () => {
         }
 
         if (qrCode) {
-          console.log('🎯 QR CODE DETECTED!', qrCode.data);
           setScanResult(qrCode.data);
-          stopCameraScanner('QR code detected');
+          stopCameraScanner();
           handleQRScanResult(qrCode.data);
           return;
         }
@@ -328,11 +430,10 @@ const DocumentsPage: React.FC = () => {
     requestAnimationFrame(scanFrame);
   };
 
-  const stopCameraScanner = (reason: string = 'unknown'): void => {
-    console.log('🛑 Stopping QR Camera Scanner - Reason:', reason);
+  const stopCameraScanner = (): void => {
     setIsScanning(false);
     isScanningRef.current = false;
-    
+
     if (cameraStream) {
       cameraStream.getTracks().forEach(track => track.stop());
       setCameraStream(null);
@@ -344,14 +445,9 @@ const DocumentsPage: React.FC = () => {
   };
 
   const handleQRScanResult = async (qrData: string): Promise<void> => {
-    console.log('🔍 QR Scanner - Raw QR Data:', qrData);
-
     try {
-      // Extract the QR code from the URL pattern
       const urlMatch = qrData.match(/\/qr\/resolve\/([^\/\?]+)/);
       const code = urlMatch ? urlMatch[1] : qrData.trim();
-
-      console.log('🔑 QR Scanner - Extracted code:', code);
 
       const token = localStorage.getItem('token');
       const apiUrl = `http://127.0.0.1:8000/api/qr/resolve/${encodeURIComponent(code)}/`;
@@ -366,16 +462,12 @@ const DocumentsPage: React.FC = () => {
 
       if (response.ok) {
         const resolveData = await response.json();
-        console.log('✅ QR Resolution Success:', resolveData);
-
         navigate(`/documents/${resolveData.document_id}`);
       } else {
         throw new Error(`QR resolution failed (${response.status})`);
       }
     } catch (error) {
-      console.error('❌ QR Scanner Error:', error);
       showSnackbar(`QR Scan Failed: ${(error as Error).message}`, 'error');
-      loadDocuments();
     }
   };
 
@@ -392,9 +484,74 @@ const DocumentsPage: React.FC = () => {
     };
   }, []);
 
-  const filteredDocuments = documents;
+  // Pagination controls renderer
+  const renderPagination = (): React.ReactNode => {
+    if (isSearchMode || totalPages <= 1) return null;
 
-  if (loading) {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    for (let i = start; i <= end; i++) pages.push(i);
+
+    return (
+      <div className="pagination">
+        <div className="pagination-info">
+          Showing {((currentPage - 1) * DOCS_PER_PAGE) + 1}–{Math.min(currentPage * DOCS_PER_PAGE, totalCount)} of {totalCount} documents
+        </div>
+        <div className="pagination-controls">
+          <button
+            className="pagination-btn"
+            disabled={currentPage === 1}
+            onClick={() => goToPage(1)}
+            title="First page"
+          >
+            &laquo;
+          </button>
+          <button
+            className="pagination-btn"
+            disabled={currentPage === 1}
+            onClick={() => goToPage(currentPage - 1)}
+            title="Previous page"
+          >
+            &lsaquo;
+          </button>
+          {start > 1 && <span className="pagination-ellipsis">...</span>}
+          {pages.map(p => (
+            <button
+              key={p}
+              className={`pagination-btn ${p === currentPage ? 'active' : ''} ${pageCache.has(p) && p !== currentPage ? 'cached' : ''}`}
+              onClick={() => goToPage(p)}
+            >
+              {p}
+            </button>
+          ))}
+          {end < totalPages && <span className="pagination-ellipsis">...</span>}
+          <button
+            className="pagination-btn"
+            disabled={currentPage === totalPages}
+            onClick={() => goToPage(currentPage + 1)}
+            title="Next page"
+          >
+            &rsaquo;
+          </button>
+          <button
+            className="pagination-btn"
+            disabled={currentPage === totalPages}
+            onClick={() => goToPage(totalPages)}
+            title="Last page"
+          >
+            &raquo;
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading && pageCache.size === 0) {
     return (
       <div className="documents-page">
         <div className="loading">
@@ -411,7 +568,7 @@ const DocumentsPage: React.FC = () => {
       <div className="documents-header">
         <h1>Document Management</h1>
         <p>Manage your documents with automatic QR code generation</p>
-        <button 
+        <button
           className="btn btn-primary"
           onClick={() => setShowCreateForm(!showCreateForm)}
         >
@@ -420,9 +577,9 @@ const DocumentsPage: React.FC = () => {
         <div style={{ marginTop: 12 }}>
           <h3 style={{ marginBottom: 8 }}>Search</h3>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input placeholder="Search by title…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            <button className="btn btn-secondary" onClick={async () => { try { const res = await searchStandard(searchQuery, searchLabels); setDocuments(res); } catch (e) { showSnackbar((e as Error).message || 'Search failed', 'error'); } }}>Search</button>
-            <button className="btn" onClick={() => { setSearchQuery(''); setSearchLabels([]); loadDocuments(); }}>Clear</button>
+            <input placeholder="Search by title..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            <button className="btn btn-secondary" onClick={handleStandardSearch}>Search</button>
+            <button className="btn" onClick={clearSearch}>Clear</button>
           </div>
           <div style={{ marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {labels.map(l => (
@@ -433,17 +590,17 @@ const DocumentsPage: React.FC = () => {
             ))}
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input placeholder="Deep search (content)…" value={deepQuery} onChange={e => setDeepQuery(e.target.value)} />
-            <button className="btn btn-secondary" onClick={async () => { try { if (!deepQuery.trim()) return; const res = await searchDeep(deepQuery.trim()); setDocuments(res); } catch (e) { showSnackbar((e as Error).message || 'Deep search failed', 'error'); } }}>Deep search</button>
+            <input placeholder="Deep search (content)..." value={deepQuery} onChange={e => setDeepQuery(e.target.value)} />
+            <button className="btn btn-secondary" onClick={handleDeepSearch}>Deep search</button>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <input type="file" accept="image/*" onChange={e => setQrFile(e.target.files?.[0] || null)} />
-              <button className="btn btn-secondary" disabled={!qrFile} onClick={async () => { try { const { document } = await searchByQRFile(qrFile!); setDocuments([document]); } catch (e) { showSnackbar((e as Error).message || 'QR search failed', 'error'); } }}>Search by QR File</button>
-              <button 
-                className="btn btn-primary" 
+              <button className="btn btn-secondary" disabled={!qrFile} onClick={handleQRFileSearch}>Search by QR File</button>
+              <button
+                className="btn btn-primary"
                 onClick={startCameraScanner}
                 title="Scan QR code with camera"
               >
-                📷 Scan QR Code
+                Scan QR Code
               </button>
             </div>
           </div>
@@ -453,7 +610,7 @@ const DocumentsPage: React.FC = () => {
       {error && (
         <div className="error-message">
           <p>{error}</p>
-          <button onClick={loadDocuments} className="btn btn-secondary">
+          <button onClick={() => loadPage(currentPage, true)} className="btn btn-secondary">
             Retry
           </button>
         </div>
@@ -487,9 +644,9 @@ const DocumentsPage: React.FC = () => {
             color: 'black'
           }}>
             <h3 style={{ marginTop: 0, marginBottom: '16px', color: '#333' }}>
-              📷 Scan QR Code with Camera
+              Scan QR Code with Camera
             </h3>
-            
+
             <div style={{ position: 'relative', marginBottom: '16px' }}>
               <video
                 ref={videoRef}
@@ -505,7 +662,7 @@ const DocumentsPage: React.FC = () => {
                 muted
                 autoPlay
               />
-              
+
               {isScanning && (
                 <div style={{
                   position: 'absolute',
@@ -518,10 +675,10 @@ const DocumentsPage: React.FC = () => {
                   borderRadius: '20px',
                   fontSize: '14px'
                 }}>
-                  🔍 Scanning for QR codes...
+                  Scanning for QR codes...
                 </div>
               )}
-              
+
               {scanResult && (
                 <div style={{
                   position: 'absolute',
@@ -534,32 +691,32 @@ const DocumentsPage: React.FC = () => {
                   borderRadius: '20px',
                   fontSize: '14px'
                 }}>
-                  ✅ QR Code Found!
+                  QR Code Found!
                 </div>
               )}
             </div>
-            
+
             <canvas ref={canvasRef} style={{ display: 'none' }} />
-            
+
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button 
-                className="btn btn-danger" 
-                onClick={() => stopCameraScanner('user cancelled')}
+              <button
+                className="btn btn-danger"
+                onClick={() => stopCameraScanner()}
                 style={{ minWidth: '100px' }}
               >
-                ❌ Cancel
+                Cancel
               </button>
             </div>
-            
-            <div style={{ 
-              marginTop: '12px', 
-              fontSize: '14px', 
-              color: '#666', 
+
+            <div style={{
+              marginTop: '12px',
+              fontSize: '14px',
+              color: '#666',
               textAlign: 'center',
               maxWidth: '400px'
             }}>
               <p style={{ margin: '8px 0' }}>
-                <strong>🎯 Position the QR code within the frame</strong>
+                <strong>Position the QR code within the frame</strong>
               </p>
             </div>
           </div>
@@ -581,7 +738,7 @@ const DocumentsPage: React.FC = () => {
                 required
               />
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="document-file">Select File:</label>
               <input
@@ -598,17 +755,17 @@ const DocumentsPage: React.FC = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="form-actions">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-primary"
                 disabled={creating}
               >
                 {creating ? 'Creating...' : 'Create Document'}
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={() => setShowCreateForm(false)}
               >
@@ -619,21 +776,38 @@ const DocumentsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Pagination - Top */}
+      {renderPagination()}
+
+      {isSearchMode && (
+        <div className="search-results-banner">
+          Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+          <button className="btn btn-secondary" onClick={clearSearch} style={{ marginLeft: 12 }}>
+            Back to all documents
+          </button>
+        </div>
+      )}
+
       <div className="documents-list">
-        {documents.length === 0 ? (
+        {loading && pageCache.size > 0 && (
+          <div className="page-loading-overlay">
+            <div className="loading-spinner"></div>
+          </div>
+        )}
+        {currentDocuments.length === 0 && !loading ? (
           <div className="no-documents">
             <h3>No documents found</h3>
             <p>Upload your first document to get started!</p>
           </div>
         ) : (
           <div className="documents-grid">
-            {filteredDocuments.map(document => (
+            {currentDocuments.map(document => (
               <div key={document.id} className="document-card">
                 <div className="document-header">
                   <h3 className="document-title">{document.title}</h3>
                   <span className="document-id">ID: {document.id}</span>
                 </div>
-                
+
                 <div className="document-content">
                   <div className="document-info">
                     <p><strong>Author:</strong> {document.owner_username || 'Unknown'}</p>
@@ -641,10 +815,10 @@ const DocumentsPage: React.FC = () => {
                     <p><strong>Updated:</strong> {formatDate(document.updated_at)}</p>
                     {document.file_url && (
                       <p>
-                        <strong>Original File:</strong> 
-                        <a 
-                          href={document.file_url} 
-                          target="_blank" 
+                        <strong>Original File:</strong>
+                        <a
+                          href={document.file_url}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="file-link"
                         >
@@ -682,13 +856,13 @@ const DocumentsPage: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="qr-code-section">
                     {document.qr_code_url ? (
                       <div className="qr-code-container">
                         <h4>QR Code</h4>
-                        <img 
-                          src={document.qr_code_url} 
+                        <img
+                          src={document.qr_code_url}
                           alt={`QR Code for ${document.title}`}
                           className="qr-code-image"
                           onClick={() => openQRCode(document.id)}
@@ -702,74 +876,74 @@ const DocumentsPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="document-actions">
-                  <button 
+                  <button
                     onClick={() => openQRCode(document.id)}
                     className="btn btn-info"
                     title="View QR Code"
                   >
-                    📱 QR Code
+                    QR Code
                   </button>
                   {document.file_url && (
-                    <a 
-                      href={document.file_url} 
-                      target="_blank" 
+                    <a
+                      href={document.file_url}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-secondary"
                       title="View Original File"
                     >
-                      📄 Original File
+                      Original File
                     </a>
                   )}
-                  <Link 
-                    to={`/documents/${document.id}`} 
+                  <Link
+                    to={`/documents/${document.id}`}
                     className="btn btn-primary"
                     title="Open in Editor"
                   >
-                    ✏️ Edit Content
+                    Edit Content
                   </Link>
-                  <button 
+                  <button
                     className="btn btn-secondary"
                     title="Manage Labels"
                     onClick={() => openLabelManager(document)}
                   >
-                    🏷️ Manage Labels
+                    Manage Labels
                   </button>
-                  <button 
+                  <button
                     className="btn btn-secondary"
                     title="Manage Collections"
                     onClick={() => openCollectionManager(document)}
                   >
-                    📚 Manage Collections
+                    Manage Collections
                   </button>
-                  <Link 
-                    to={`/documents/${document.id}/access`} 
+                  <Link
+                    to={`/documents/${document.id}/access`}
                     className="btn btn-secondary"
                     title="Manage Access"
                   >
-                    🔐 Manage Access
+                    Manage Access
                   </Link>
-                  <Link 
-                    to={`/documents/${document.id}/versions`} 
+                  <Link
+                    to={`/documents/${document.id}/versions`}
                     className="btn btn-secondary"
                     title="Version History"
                   >
-                    📚 Versions
+                    Versions
                   </Link>
-                  <Link 
-                    to={`/documents/${document.id}/audit`} 
+                  <Link
+                    to={`/documents/${document.id}/audit`}
                     className="btn btn-secondary"
                     title="Audit Log"
                   >
-                    📋 Audit Log
+                    Audit Log
                   </Link>
-                  <button 
+                  <button
                     onClick={() => handleDeleteDocument(document.id, document.title)}
                     className="btn btn-danger"
                     title="Delete Document"
                   >
-                    🗑️ Delete
+                    Delete
                   </button>
                 </div>
                 {labelManagerDocId === document.id && (
@@ -811,6 +985,9 @@ const DocumentsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination - Bottom */}
+      {renderPagination()}
     </div>
   );
 };

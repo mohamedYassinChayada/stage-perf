@@ -25,7 +25,8 @@
       "Bash(python manage.py makemigrations:*)",
       "Bash(python manage.py migrate:*)",
       "Bash(python:*)",
-      "Bash(DJANGO_SETTINGS_MODULE=my_project.settings python:*)"
+      "Bash(DJANGO_SETTINGS_MODULE=my_project.settings python:*)",
+      "Bash(npm run lint)"
     ]
   }
 }

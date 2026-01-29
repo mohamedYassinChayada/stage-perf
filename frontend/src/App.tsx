@@ -16,6 +16,7 @@ import ShareLinkPage from './pages/ShareLinkPage';
 import AuditLogPage from './pages/AuditLogPage';
 import VersionHistoryPage from './pages/VersionHistoryPage';
 import SnackbarContainer from './components/Snackbar';
+import { PageCacheProvider } from './contexts/PageCacheContext';
 
 interface UserInfo {
   authenticated: boolean;
@@ -188,25 +189,27 @@ const HomePage: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Router>
-      <div className="App">
-        <Navigation />
-        <div className="app-content">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/ocr" element={<OCRPage />} />
-            <Route path="/documents" element={<DocumentsPage />} />
-            <Route path="/documents/:id" element={<DocumentEditorPage />} />
-            <Route path="/documents/:id/access" element={<AccessManagementPage />} />
-            <Route path="/documents/:documentId/audit" element={<AuditLogPage />} />
-            <Route path="/documents/:documentId/versions" element={<VersionHistoryPage />} />
-            <Route path="/collections" element={<CollectionsManagerPage />} />
-            <Route path="/groups" element={<GroupsPage />} />
-            <Route path="/share/:token" element={<ShareLinkPage />} />
-          </Routes>
+      <PageCacheProvider>
+        <div className="App">
+          <Navigation />
+          <div className="app-content">
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/ocr" element={<OCRPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/documents/:id" element={<DocumentEditorPage />} />
+              <Route path="/documents/:id/access" element={<AccessManagementPage />} />
+              <Route path="/documents/:documentId/audit" element={<AuditLogPage />} />
+              <Route path="/documents/:documentId/versions" element={<VersionHistoryPage />} />
+              <Route path="/collections" element={<CollectionsManagerPage />} />
+              <Route path="/groups" element={<GroupsPage />} />
+              <Route path="/share/:token" element={<ShareLinkPage />} />
+            </Routes>
+          </div>
+          <SnackbarContainer />
         </div>
-        <SnackbarContainer />
-      </div>
+      </PageCacheProvider>
     </Router>
   );
 };

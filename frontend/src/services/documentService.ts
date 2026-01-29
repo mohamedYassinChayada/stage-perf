@@ -180,7 +180,7 @@ export const getAllDocuments = async (): Promise<Document[]> => {
 /**
  * Get documents with pagination info
  */
-export const getDocumentsPaginated = async (page: number = 1): Promise<PaginatedResponse<Document>> => {
+export const getDocumentsPaginated = async (page: number = 1, _pageSize: number = 10): Promise<PaginatedResponse<Document>> => {
   try {
     const response = await fetch(`${API_BASE_URL}/documents/?page=${page}`, {
       method: 'GET',

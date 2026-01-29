@@ -7,9 +7,12 @@ import { extractTextFromFile, formatOCRForTinyMCE, isSupportedFileType, formatFi
 import type { OCRResult } from '../services/ocrService';
 import { createDocumentFromOCR, getDocument } from '../services/documentService';
 import { showSnackbar } from '../components/Snackbar';
+import { usePageCache } from '../contexts/PageCacheContext';
 import './OCRPage.css';
 
 const OCRPage: React.FC = () => {
+  const { getOCRCache, setOCRCache } = usePageCache();
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
   const [error, setError] = useState('');
@@ -19,15 +22,52 @@ const OCRPage: React.FC = () => {
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingDocument, setLoadingDocument] = useState(false);
-  
+
   // Get query parameters to check if we're opening an existing document
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const documentId = queryParams.get('documentId');
-  
+
   // Ref to access the WordLikeEditor
   const editorRef = useRef<WordLikeEditorHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Restore OCR result from cache on mount (only when not loading a specific document)
+  useEffect(() => {
+    if (!documentId) {
+      const cached = getOCRCache();
+      if (cached && cached.ocrResult) {
+        setOcrResult(cached.ocrResult);
+        setSuccess('Previous OCR result restored from cache.');
+        // Restore editor content after editor is ready
+        setTimeout(() => {
+          if (editorRef.current && editorRef.current.getEditor() && cached.editorContent) {
+            editorRef.current.setContent(cached.editorContent);
+          }
+          if (editorRef.current && cached.editorTitle) {
+            editorRef.current.setTitle?.(cached.editorTitle);
+          }
+        }, 600);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync OCR state to cache when ocrResult changes
+  useEffect(() => {
+    if (ocrResult && !documentId) {
+      const editorContent = editorRef.current?.getEditor()?.getContent() || null;
+      const editorTitle = editorRef.current?.getTitle?.() || null;
+      setOCRCache({
+        ocrResult,
+        fileName: selectedFile?.name || null,
+        editorContent,
+        editorTitle,
+        timestamp: Date.now(),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ocrResult]);
 
   // Load document if documentId is provided
   useEffect(() => {
