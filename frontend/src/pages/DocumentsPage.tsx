@@ -878,105 +878,119 @@ const DocumentsPage: React.FC = () => {
                 </div>
 
                 <div className="document-actions">
-                  <button
-                    onClick={() => openQRCode(document.id)}
-                    className="btn btn-info"
-                    title="View QR Code"
-                  >
-                    QR Code
-                  </button>
-                  {document.file_url && (
-                    <a
-                      href={document.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary"
-                      title="View Original File"
-                    >
-                      Original File
-                    </a>
-                  )}
-                  <Link
-                    to={`/documents/${document.id}`}
-                    className="btn btn-primary"
-                    title="Open in Editor"
-                  >
-                    Edit Content
-                  </Link>
-                  <button
-                    className="btn btn-secondary"
-                    title="Manage Labels"
-                    onClick={() => openLabelManager(document)}
-                  >
-                    Manage Labels
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    title="Manage Collections"
-                    onClick={() => openCollectionManager(document)}
-                  >
-                    Manage Collections
-                  </button>
-                  <Link
-                    to={`/documents/${document.id}/access`}
-                    className="btn btn-secondary"
-                    title="Manage Access"
-                  >
-                    Manage Access
-                  </Link>
-                  <Link
-                    to={`/documents/${document.id}/versions`}
-                    className="btn btn-secondary"
-                    title="Version History"
-                  >
-                    Versions
-                  </Link>
-                  <Link
-                    to={`/documents/${document.id}/audit`}
-                    className="btn btn-secondary"
-                    title="Audit Log"
-                  >
-                    Audit Log
-                  </Link>
-                  <button
-                    onClick={() => handleDeleteDocument(document.id, document.title)}
-                    className="btn btn-danger"
-                    title="Delete Document"
-                  >
-                    Delete
-                  </button>
+                  <div className="document-actions-primary">
+                    <Link to={`/documents/${document.id}`} className="btn btn-primary" title="Open in Editor">
+                      Edit Content
+                    </Link>
+                    <button onClick={() => openQRCode(document.id)} className="btn btn-info" title="View QR Code">
+                      QR Code
+                    </button>
+                    {document.file_url && (
+                      <a href={document.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" title="View Original File">
+                        Original
+                      </a>
+                    )}
+                  </div>
+                  <div className="document-actions-secondary">
+                    <button className="action-link action-link--labels" title="Manage Labels" onClick={() => openLabelManager(document)}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                      Labels
+                    </button>
+                    <button className="action-link action-link--collections" title="Manage Collections" onClick={() => openCollectionManager(document)}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                      Collections
+                    </button>
+                    <Link to={`/documents/${document.id}/access`} className="action-link action-link--access" title="Manage Access">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Access
+                    </Link>
+                    <Link to={`/documents/${document.id}/versions`} className="action-link action-link--versions" title="Version History">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      Versions
+                    </Link>
+                    <Link to={`/documents/${document.id}/audit`} className="action-link action-link--audit" title="Audit Log">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                      Audit
+                    </Link>
+                    <button onClick={() => handleDeleteDocument(document.id, document.title)} className="action-link action-link--delete" title="Delete Document">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      Delete
+                    </button>
+                  </div>
                 </div>
+
+                {/* Label Manager Panel */}
                 {labelManagerDocId === document.id && (
-                  <div style={{ marginTop: 8, borderTop: '1px solid #eee', paddingTop: 8 }}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {labels.map(l => (
-                        <label key={l.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <input type="checkbox" checked={labelSelection.includes(l.id)} onChange={() => toggleLabelSelection(l.id)} />
-                          {l.name}
-                        </label>
-                      ))}
+                  <div className="manager-panel">
+                    <div className="manager-panel-header">
+                      <span className="manager-panel-title">
+                        <span className="manager-panel-title-icon manager-panel-title-icon--labels">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                        </span>
+                        Manage Labels
+                      </span>
+                      <button className="manager-panel-close" onClick={() => setLabelManagerDocId(null)} title="Close">&times;</button>
                     </div>
-                    <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
-                      <input placeholder="New label" value={newLabelName} onChange={e => setNewLabelName(e.target.value)} />
-                      <button className="btn btn-secondary" onClick={addLabel}>Add Label</button>
-                      <button className="btn btn-primary" onClick={() => saveLabels(document.id)}>Save Labels</button>
-                      <button className="btn" onClick={() => setLabelManagerDocId(null)}>Close</button>
+                    <div className="manager-chip-grid">
+                      {labels.map(l => (
+                        <button
+                          key={l.id}
+                          className={`manager-chip ${labelSelection.includes(l.id) ? 'selected' : ''}`}
+                          onClick={() => toggleLabelSelection(l.id)}
+                        >
+                          <span className="manager-chip-check">
+                            {labelSelection.includes(l.id) && (
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            )}
+                          </span>
+                          {l.name}
+                        </button>
+                      ))}
+                      {labels.length === 0 && (
+                        <span style={{ fontSize: 12, color: '#adb5bd', fontStyle: 'italic' }}>No labels yet. Create one below.</span>
+                      )}
+                    </div>
+                    <div className="manager-panel-footer">
+                      <input placeholder="New label name..." value={newLabelName} onChange={e => setNewLabelName(e.target.value)} />
+                      <button className="manager-add-btn" onClick={addLabel}>Add</button>
+                      <button className="manager-save-btn" onClick={() => saveLabels(document.id)}>Save</button>
                     </div>
                   </div>
                 )}
+
+                {/* Collection Manager Panel */}
                 {collectionManagerDocId === document.id && (
-                  <div style={{ marginTop: 8, borderTop: '1px solid #eee', paddingTop: 8 }}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {collections.map(c => (
-                        <label key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <input type="checkbox" checked={collectionSelection.includes(c.id)} onChange={() => toggleCollectionSelection(c.id)} />
-                          {c.name}
-                        </label>
-                      ))}
+                  <div className="manager-panel">
+                    <div className="manager-panel-header">
+                      <span className="manager-panel-title">
+                        <span className="manager-panel-title-icon manager-panel-title-icon--collections">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        </span>
+                        Manage Collections
+                      </span>
+                      <button className="manager-panel-close" onClick={() => setCollectionManagerDocId(null)} title="Close">&times;</button>
                     </div>
-                    <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
-                      <button className="btn btn-primary" onClick={() => saveCollections(document.id)}>Save Collections</button>
-                      <button className="btn" onClick={() => setCollectionManagerDocId(null)}>Close</button>
+                    <div className="manager-chip-grid">
+                      {collections.map(c => (
+                        <button
+                          key={c.id}
+                          className={`manager-chip ${collectionSelection.includes(c.id) ? 'selected' : ''}`}
+                          onClick={() => toggleCollectionSelection(c.id)}
+                        >
+                          <span className="manager-chip-check">
+                            {collectionSelection.includes(c.id) && (
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            )}
+                          </span>
+                          {c.name}
+                        </button>
+                      ))}
+                      {collections.length === 0 && (
+                        <span style={{ fontSize: 12, color: '#adb5bd', fontStyle: 'italic' }}>No collections yet.</span>
+                      )}
+                    </div>
+                    <div className="manager-panel-footer">
+                      <button className="manager-save-btn" onClick={() => saveCollections(document.id)}>Save</button>
                     </div>
                   </div>
                 )}

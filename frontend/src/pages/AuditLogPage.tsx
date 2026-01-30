@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDocumentAuditLog, getDocument } from '../services/documentService';
 import type { Document, AuditLogEntry } from '../services/documentService';
+import './DetailPage.css';
 
 interface AuditContext {
   action?: string;
@@ -33,16 +34,16 @@ const AuditLogPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const [docResponse, auditResponse] = await Promise.all([
         getDocument(documentId!),
         getDocumentAuditLog(documentId!, currentPage, pageSize)
       ]);
-      
+
       setDocument(docResponse);
       setAuditLogs(auditResponse.results || []);
       setTotalCount(auditResponse.count || 0);
-      
+
     } catch (err) {
       setError((err as Error).message || 'Failed to load audit log');
     } finally {
@@ -55,33 +56,36 @@ const AuditLogPage: React.FC = () => {
   };
 
   const getActionBadgeClass = (action: string): string => {
-    const classes: Record<string, string> = {
-      'VIEW': 'badge-info',
-      'EDIT': 'badge-warning',
-      'SHARE': 'badge-success',
-      'EXPORT': 'badge-secondary'
-    };
-    return classes[action] || 'badge-secondary';
+    return `detail-badge detail-badge--${action.toLowerCase()}`;
   };
 
-  const renderContextInfo = (context: AuditContext | null): React.ReactNode => {
-    if (!context || Object.keys(context).length === 0) {
-      return null;
-    }
-    
+  const getActorInitials = (name: string | null | undefined): string => {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const renderContextChips = (context: AuditContext | null): React.ReactNode => {
+    if (!context || Object.keys(context).length === 0) return null;
+
+    const chips: { label: string; value: string }[] = [];
+    if (context.action) chips.push({ label: 'Action', value: context.action });
+    if (context.method) chips.push({ label: 'Method', value: context.method });
+    if (context.access_method) chips.push({ label: 'Access', value: context.access_method });
+    if (context.shared_with) chips.push({ label: 'Shared with', value: context.shared_with });
+    if (context.role_granted) chips.push({ label: 'Role', value: context.role_granted });
+    if (context.export_format) chips.push({ label: 'Format', value: context.export_format });
+    if (context.title_changed) chips.push({ label: 'Change', value: 'Title' });
+    if (context.content_changed) chips.push({ label: 'Change', value: 'Content' });
+
+    if (chips.length === 0) return null;
+
     return (
-      <div className="mt-2">
-        <small className="text-muted">
-          <strong>Details:</strong>
-          {context.action && <span className="ms-2">Action: {context.action}</span>}
-          {context.method && <span className="ms-2">Method: {context.method}</span>}
-          {context.access_method && <span className="ms-2">Access: {context.access_method}</span>}
-          {context.shared_with && <span className="ms-2">Shared with: {context.shared_with}</span>}
-          {context.role_granted && <span className="ms-2">Role: {context.role_granted}</span>}
-          {context.export_format && <span className="ms-2">Format: {context.export_format}</span>}
-          {context.title_changed && <span className="ms-2">Title changed</span>}
-          {context.content_changed && <span className="ms-2">Content changed</span>}
-        </small>
+      <div className="audit-details">
+        {chips.map((chip, i) => (
+          <span key={i} className="audit-detail-chip">
+            <strong>{chip.label}:</strong> {chip.value}
+          </span>
+        ))}
       </div>
     );
   };
@@ -90,201 +94,176 @@ const AuditLogPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="container mt-4">
-        <div className="text-center">
-          <h3>Loading audit log...</h3>
-        </div>
+      <div className="detail-loading">
+        <div className="detail-loading-spinner" />
+        <p className="detail-loading-title">Loading audit log</p>
+        <p className="detail-loading-subtitle">Fetching activity history and access records...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="container mt-4">
-        <div className="alert alert-danger">
-          <h4>Error Loading Audit Log</h4>
-          <p>{error}</p>
-          <button className="btn btn-primary" onClick={() => navigate('/documents')}>
-            ← Back to Documents
-          </button>
-        </div>
+      <div className="detail-error">
+        <p className="detail-error-title">Failed to load audit log</p>
+        <p className="detail-error-message">{error}</p>
+        <button className="detail-btn detail-btn--primary" onClick={() => navigate('/documents')}>Back to Documents</button>
       </div>
     );
   }
 
   return (
-    <div className="container mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2>📋 Audit Log</h2>
-          {document && (
-            <p className="text-muted mb-0">
-              Document: <strong>{document.title}</strong> (ID: {document.id})
-            </p>
-          )}
+    <div className="detail-page">
+      <div className="detail-page-header">
+        <div className="detail-page-header-left">
+          <h2>
+            <span className="detail-header-icon detail-header-icon--audit">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </span>
+            Audit Log
+          </h2>
+          {document && <p>Document: <strong>{document.title}</strong></p>}
         </div>
-        <div>
-          <button 
-            className="btn btn-outline-secondary me-2" 
-            onClick={() => navigate(`/documents/${documentId}/versions`)}
-          >
-            📚 Version History
-          </button>
-          <button 
-            className="btn btn-primary" 
-            onClick={() => navigate('/documents')}
-          >
-            ← Back to Documents
-          </button>
+        <div className="detail-page-header-actions">
+          <button className="detail-btn" onClick={() => navigate(`/documents/${documentId}/versions`)}>Version History</button>
+          <button className="detail-btn detail-btn--primary" onClick={() => navigate('/documents')}>Back to Documents</button>
         </div>
       </div>
 
-      <div className="row mb-4">
-        <div className="col-md-12">
-          <div className="card">
-            <div className="card-body">
-              <h5 className="card-title">Activity Summary</h5>
-              <p className="card-text">
-                Total activities: <strong>{totalCount}</strong> entries
-                {totalPages > 1 && (
-                  <span className="ms-3">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                )}
-              </p>
-            </div>
+      <div className="detail-card" style={{ marginBottom: 20 }}>
+        <div className="detail-card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px' }}>
+          <div style={{ fontSize: 14, color: '#495057' }}>
+            Total activities: <strong>{totalCount}</strong> entries
           </div>
-        </div>
-      </div>
-
-      <div className="row">
-        <div className="col-md-12">
-          {auditLogs.length === 0 ? (
-            <div className="card">
-              <div className="card-body text-center">
-                <h5>No audit entries found</h5>
-                <p className="text-muted">This document has no recorded activities yet.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="card">
-              <div className="card-header">
-                <h5 className="mb-0">Activity Log</h5>
-              </div>
-              <div className="card-body p-0">
-                <div className="table-responsive">
-                  <table className="table table-hover mb-0">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Date & Time</th>
-                        <th>User</th>
-                        <th>Action</th>
-                        <th>Details</th>
-                        <th>IP Address</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditLogs.map((log) => (
-                        <tr key={log.id}>
-                          <td>
-                            <small>{formatDateTime(log.ts)}</small>
-                          </td>
-                          <td>
-                            <div>
-                              <strong>{log.actor_name || 'Unknown'}</strong>
-                              {log.actor_email && (
-                                <div>
-                                  <small className="text-muted">{log.actor_email}</small>
-                                </div>
-                              )}
-                              {!log.actor_user && (
-                                <small className="text-muted">Anonymous</small>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <span className={`badge ${getActionBadgeClass(log.action)}`}>
-                              {log.action_display || log.action}
-                            </span>
-                            {log.version_no && (
-                              <div>
-                                <small className="text-muted">Version {log.version_no}</small>
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            <div>
-                              {log.share_link_token && (
-                                <small className="text-info">Via Share Link</small>
-                              )}
-                              {log.qr_link_code && (
-                                <small className="text-warning">Via QR Code</small>
-                              )}
-                              {renderContextInfo(log.context as AuditContext)}
-                            </div>
-                          </td>
-                          <td>
-                            <small className="text-muted">
-                              {log.ip || 'N/A'}
-                            </small>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          {totalPages > 1 && (
+            <div style={{ fontSize: 13, color: '#868e96' }}>
+              Page {currentPage} of {totalPages}
             </div>
           )}
         </div>
+      </div>
+
+      <div className="detail-card">
+        <div className="detail-card-header">
+          <h3>Activity Log</h3>
+        </div>
+        {auditLogs.length === 0 ? (
+          <div className="detail-empty">
+            <div className="detail-empty-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <p>No audit entries found</p>
+            <p>This document has no recorded activities yet</p>
+          </div>
+        ) : (
+          <div className="detail-card-body--flush">
+            <table className="detail-table">
+              <thead>
+                <tr>
+                  <th>Date & Time</th>
+                  <th>User</th>
+                  <th>Action</th>
+                  <th>Details</th>
+                  <th>IP Address</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td style={{ fontSize: 12, color: '#868e96', whiteSpace: 'nowrap' }}>
+                      {formatDateTime(log.ts)}
+                    </td>
+                    <td>
+                      <div className="audit-row-actor">
+                        <div className={`audit-row-avatar ${!log.actor_user ? 'audit-row-avatar--anon' : ''}`}>
+                          {getActorInitials(log.actor_name)}
+                        </div>
+                        <div>
+                          <div className="audit-row-name">{log.actor_name || 'Unknown'}</div>
+                          {log.actor_email && <div className="audit-row-email">{log.actor_email}</div>}
+                          {!log.actor_user && <div className="audit-row-email">Anonymous</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={getActionBadgeClass(log.action)}>
+                        {log.action_display || log.action}
+                      </span>
+                      {log.version_no && (
+                        <div style={{ fontSize: 11, color: '#868e96', marginTop: 4 }}>Version {log.version_no}</div>
+                      )}
+                    </td>
+                    <td>
+                      <div>
+                        {log.share_link_token && (
+                          <span className="audit-detail-chip">
+                            <strong>Via:</strong> Share Link
+                          </span>
+                        )}
+                        {log.qr_link_code && (
+                          <span className="audit-detail-chip">
+                            <strong>Via:</strong> QR Code
+                          </span>
+                        )}
+                        {renderContextChips(log.context as AuditContext)}
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, color: '#868e96', fontFamily: "'SFMono-Regular', Consolas, monospace" }}>
+                        {log.ip || 'N/A'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {totalPages > 1 && (
-        <div className="row mt-4">
-          <div className="col-md-12">
-            <nav aria-label="Audit log pagination">
-              <ul className="pagination justify-content-center">
-                <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                  <button 
-                    className="page-link" 
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </button>
-                </li>
-                
-                {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                  const pageNum = Math.max(1, currentPage - 2) + i;
-                  if (pageNum > totalPages) return null;
-                  
-                  return (
-                    <li 
-                      key={pageNum} 
-                      className={`page-item ${currentPage === pageNum ? 'active' : ''}`}
-                    >
-                      <button 
-                        className="page-link" 
-                        onClick={() => setCurrentPage(pageNum)}
-                      >
-                        {pageNum}
-                      </button>
-                    </li>
-                  );
-                })}
-                
-                <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                  <button 
-                    className="page-link" 
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </button>
-                </li>
-              </ul>
-            </nav>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginTop: 20 }}>
+          <button
+            className="detail-btn detail-btn--sm"
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+          >
+            First
+          </button>
+          <button
+            className="detail-btn detail-btn--sm"
+            onClick={() => setCurrentPage(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </button>
+          {[...Array(Math.min(5, totalPages))].map((_, i) => {
+            const pageNum = Math.max(1, Math.min(currentPage - 2, totalPages - 4)) + i;
+            if (pageNum > totalPages || pageNum < 1) return null;
+            return (
+              <button
+                key={pageNum}
+                className={`detail-btn detail-btn--sm ${currentPage === pageNum ? 'detail-btn--primary' : ''}`}
+                onClick={() => setCurrentPage(pageNum)}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+          <button
+            className="detail-btn detail-btn--sm"
+            onClick={() => setCurrentPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </button>
+          <button
+            className="detail-btn detail-btn--sm"
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages}
+          >
+            Last
+          </button>
         </div>
       )}
     </div>

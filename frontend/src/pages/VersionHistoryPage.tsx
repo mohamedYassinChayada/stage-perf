@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  getDocumentVersionHistory, 
-  getDocumentVersionDetail, 
-  restoreDocumentVersion, 
+import {
+  getDocumentVersionHistory,
+  getDocumentVersionDetail,
+  restoreDocumentVersion,
   getDocument
 } from '../services/documentService';
 import type { Document, Version, VersionDetail } from '../services/documentService';
 import { showSnackbar } from '../components/Snackbar';
+import './DetailPage.css';
 
 const VersionHistoryPage: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>();
@@ -28,15 +29,15 @@ const VersionHistoryPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const [docResponse, versionsResponse] = await Promise.all([
         getDocument(documentId!),
         getDocumentVersionHistory(documentId!)
       ]);
-      
+
       setDocument(docResponse);
       setVersions(versionsResponse || []);
-      
+
     } catch (err) {
       setError((err as Error).message || 'Failed to load version history');
     } finally {
@@ -67,11 +68,11 @@ const VersionHistoryPage: React.FC = () => {
       setRestoring(true);
       await restoreDocumentVersion(documentId!, version.id, changeNote);
       showSnackbar('Document restored successfully!', 'success');
-      
+
       await loadData();
       setPreviewMode(false);
       setSelectedVersion(null);
-      
+
     } catch (err) {
       showSnackbar(`Failed to restore version: ${(err as Error).message}`, 'error');
     } finally {
@@ -90,215 +91,158 @@ const VersionHistoryPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="container mt-4">
-        <div className="text-center">
-          <h3>Loading version history...</h3>
-        </div>
+      <div className="detail-loading">
+        <div className="detail-loading-spinner" />
+        <p className="detail-loading-title">Loading version history</p>
+        <p className="detail-loading-subtitle">Fetching document versions and change history...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="container mt-4">
-        <div className="alert alert-danger">
-          <h4>Error Loading Version History</h4>
-          <p>{error}</p>
-          <button className="btn btn-primary" onClick={() => navigate('/documents')}>
-            ← Back to Documents
-          </button>
-        </div>
+      <div className="detail-error">
+        <p className="detail-error-title">Failed to load version history</p>
+        <p className="detail-error-message">{error}</p>
+        <button className="detail-btn detail-btn--primary" onClick={() => navigate('/documents')}>Back to Documents</button>
       </div>
     );
   }
 
   return (
-    <div className="container mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2>📚 Version History</h2>
-          {document && (
-            <p className="text-muted mb-0">
-              Document: <strong>{document.title}</strong> (ID: {document.id})
-            </p>
-          )}
+    <div className="detail-page">
+      <div className="detail-page-header">
+        <div className="detail-page-header-left">
+          <h2>
+            <span className="detail-header-icon detail-header-icon--versions">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+            </span>
+            Version History
+          </h2>
+          {document && <p>Document: <strong>{document.title}</strong></p>}
         </div>
-        <div>
-          <button 
-            className="btn btn-outline-secondary me-2" 
-            onClick={() => navigate(`/documents/${documentId}/audit`)}
-          >
-            📋 Audit Log
-          </button>
-          <button 
-            className="btn btn-outline-primary me-2" 
-            onClick={() => navigate(`/documents/${documentId}`)}
-          >
-            ✏️ Edit Document
-          </button>
-          <button 
-            className="btn btn-primary" 
-            onClick={() => navigate('/documents')}
-          >
-            ← Back to Documents
-          </button>
+        <div className="detail-page-header-actions">
+          <button className="detail-btn" onClick={() => navigate(`/documents/${documentId}/audit`)}>Audit Log</button>
+          <button className="detail-btn" onClick={() => navigate(`/documents/${documentId}`)}>Edit Document</button>
+          <button className="detail-btn detail-btn--primary" onClick={() => navigate('/documents')}>Back to Documents</button>
         </div>
       </div>
 
-      <div className="row">
-        <div className={`col-md-${previewMode ? '4' : '12'}`}>
-          <div className="card">
-            <div className="card-header">
-              <h5 className="mb-0">
-                Document Versions ({versions.length})
-                {previewMode && (
-                  <button 
-                    className="btn btn-sm btn-outline-secondary float-end"
-                    onClick={closePreview}
-                  >
-                    ✕ Close Preview
-                  </button>
-                )}
-              </h5>
-            </div>
-            <div className="card-body p-0">
-              {versions.length === 0 ? (
-                <div className="p-4 text-center">
-                  <h6>No versions found</h6>
-                  <p className="text-muted">This document has no version history yet.</p>
+      <div className={`detail-split ${!previewMode ? 'detail-split--list-only' : ''}`}>
+        <div className="detail-card">
+          <div className="detail-card-header">
+            <h3>Document Versions ({versions.length})</h3>
+            {previewMode && (
+              <button className="detail-btn detail-btn--sm" onClick={closePreview}>Close Preview</button>
+            )}
+          </div>
+          <div className="detail-card-body--flush">
+            {versions.length === 0 ? (
+              <div className="detail-empty">
+                <div className="detail-empty-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
                 </div>
-              ) : (
-                <div className="list-group list-group-flush">
-                  {versions.map((version) => (
-                    <div 
-                      key={version.id} 
-                      className={`list-group-item list-group-item-action ${
-                        selectedVersion && selectedVersion.id === version.id ? 'active' : ''
-                      }`}
-                    >
-                      <div className="d-flex w-100 justify-content-between">
-                        <h6 className="mb-1">
-                          Version {version.version_no}
-                          {document && version.version_no === document.current_version_no && (
-                            <span className="badge bg-primary ms-2">Current</span>
-                          )}
-                        </h6>
-                        <small>{formatDateTime(version.created_at)}</small>
-                      </div>
-                      
-                      <div className="mb-2">
-                        <small>
-                          <strong>Author:</strong> {version.author_name || 'Unknown'}
-                          {version.author_email && ` (${version.author_email})`}
-                        </small>
-                      </div>
-                      
-                      {version.change_note && (
-                        <div className="mb-2">
-                          <small className="text-muted">
-                            <strong>Note:</strong> {version.change_note}
-                          </small>
-                        </div>
+                <p>No versions found</p>
+                <p>This document has no version history yet</p>
+              </div>
+            ) : (
+              versions.map((version) => (
+                <div
+                  key={version.id}
+                  className={`version-item ${selectedVersion && selectedVersion.id === version.id ? 'active' : ''}`}
+                  onClick={() => handleVersionSelect(version)}
+                >
+                  <div className="version-item-top">
+                    <div className="version-item-title">
+                      Version {version.version_no}
+                      {document && version.version_no === document.current_version_no && (
+                        <span className="detail-badge detail-badge--current">Current</span>
                       )}
-                      
-                      {version.content_preview && (
-                        <div className="mb-2">
-                          <small className="text-muted">
-                            <strong>Preview:</strong> {version.content_preview}
-                          </small>
-                        </div>
-                      )}
-                      
-                      <div className="btn-group btn-group-sm" role="group">
-                        <button 
-                          className="btn btn-outline-primary" 
-                          onClick={() => handleVersionSelect(version)}
-                          disabled={selectedVersion?.id === version.id}
-                        >
-                          👁️ Preview
-                        </button>
-                        {document && version.version_no !== document.current_version_no && (
-                          <button 
-                            className="btn btn-outline-warning" 
-                            onClick={() => handleRestore(version)}
-                            disabled={restoring}
-                          >
-                            {restoring ? '⏳' : '↩️'} Restore
-                          </button>
-                        )}
-                      </div>
                     </div>
-                  ))}
+                    <span className="version-item-date">{formatDateTime(version.created_at)}</span>
+                  </div>
+                  <div className="version-item-meta">
+                    {version.author_name || 'Unknown'}
+                    {version.author_email && ` (${version.author_email})`}
+                  </div>
+                  {version.change_note && (
+                    <div className="version-item-note">{version.change_note}</div>
+                  )}
+                  {version.content_preview && (
+                    <div className="version-item-note">{version.content_preview}</div>
+                  )}
+                  <div className="version-item-actions">
+                    <button
+                      className="detail-btn detail-btn--sm"
+                      onClick={(e) => { e.stopPropagation(); handleVersionSelect(version); }}
+                      disabled={selectedVersion?.id === version.id}
+                    >
+                      Preview
+                    </button>
+                    {document && version.version_no !== document.current_version_no && (
+                      <button
+                        className="detail-btn detail-btn--warning detail-btn--sm"
+                        onClick={(e) => { e.stopPropagation(); handleRestore(version); }}
+                        disabled={restoring}
+                      >
+                        {restoring ? 'Restoring...' : 'Restore'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+              ))
+            )}
           </div>
         </div>
 
         {previewMode && selectedVersion && (
-          <div className="col-md-8">
-            <div className="card">
-              <div className="card-header">
-                <h5 className="mb-0">
-                  Version {selectedVersion.version_no} Preview
-                  <span className="badge bg-info ms-2">{formatDateTime(selectedVersion.created_at)}</span>
-                </h5>
+          <div className="version-preview">
+            <div className="detail-card">
+              <div className="detail-card-header">
+                <h3>Version {selectedVersion.version_no} Preview</h3>
+                <span className="detail-badge detail-badge--viewer">{formatDateTime(selectedVersion.created_at)}</span>
               </div>
-              <div className="card-body">
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <strong>Author:</strong> {selectedVersion.author_name || 'Unknown'}
+              <div className="detail-card-body">
+                <div style={{ display: 'flex', gap: 24, marginBottom: 16, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#868e96', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 4 }}>Author</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: '#212529' }}>{selectedVersion.author_name || 'Unknown'}</div>
                     {selectedVersion.author_email && (
-                      <div><small className="text-muted">{selectedVersion.author_email}</small></div>
+                      <div style={{ fontSize: 12, color: '#868e96' }}>{selectedVersion.author_email}</div>
                     )}
                   </div>
-                  <div className="col-md-6">
-                    <strong>Created:</strong> {formatDateTime(selectedVersion.created_at)}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#868e96', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 4 }}>Created</div>
+                    <div style={{ fontSize: 14, color: '#495057' }}>{formatDateTime(selectedVersion.created_at)}</div>
                   </div>
                 </div>
-                
+
                 {selectedVersion.change_note && (
-                  <div className="mb-3">
-                    <strong>Change Note:</strong>
-                    <div className="text-muted">{selectedVersion.change_note}</div>
+                  <div style={{ padding: '10px 14px', background: '#f8f9fa', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                    <span style={{ fontWeight: 600, color: '#495057' }}>Change Note: </span>
+                    <span style={{ color: '#6c757d' }}>{selectedVersion.change_note}</span>
                   </div>
                 )}
-                
-                <hr />
-                
-                <div className="mb-3">
-                  <strong>Content Preview:</strong>
-                </div>
-                
-                <div 
-                  className="border p-3 bg-light"
-                  style={{ 
-                    maxHeight: '500px', 
-                    overflowY: 'auto',
-                    fontFamily: 'serif',
-                    lineHeight: '1.6'
-                  }}
-                  dangerouslySetInnerHTML={{ 
-                    __html: selectedVersion.html || '<p><em>No content</em></p>' 
+
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#868e96', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>Content Preview</div>
+                <div
+                  className="version-preview-content"
+                  dangerouslySetInnerHTML={{
+                    __html: selectedVersion.html || '<p><em>No content</em></p>'
                   }}
                 />
-                
-                <div className="mt-3">
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                   {document && selectedVersion.version_no !== document.current_version_no && (
-                    <button 
-                      className="btn btn-warning me-2" 
+                    <button
+                      className="detail-btn detail-btn--warning"
                       onClick={() => handleRestore(selectedVersion)}
                       disabled={restoring}
                     >
-                      {restoring ? '⏳ Restoring...' : '↩️ Restore This Version'}
+                      {restoring ? 'Restoring...' : 'Restore This Version'}
                     </button>
                   )}
-                  <button 
-                    className="btn btn-outline-secondary" 
-                    onClick={closePreview}
-                  >
-                    Close Preview
-                  </button>
+                  <button className="detail-btn" onClick={closePreview}>Close Preview</button>
                 </div>
               </div>
             </div>
