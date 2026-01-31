@@ -13,6 +13,7 @@ import UserMenu from './components/UserMenu';
 import CollectionsManagerPage from './pages/CollectionsManagerPage';
 import AccessManagementPage from './pages/AccessManagementPage';
 import GroupsPage from './pages/GroupsPage';
+import GroupDocumentsPage from './pages/GroupDocumentsPage';
 import ShareLinkPage from './pages/ShareLinkPage';
 import AuditLogPage from './pages/AuditLogPage';
 import VersionHistoryPage from './pages/VersionHistoryPage';
@@ -87,6 +88,12 @@ const Navigation: React.FC = () => {
           className={`nav-link ${location.pathname === '/groups' ? 'active' : ''}`}
         >
           👥 Groups
+        </Link>
+        <Link 
+          to="/group-documents" 
+          className={`nav-link ${location.pathname === '/group-documents' ? 'active' : ''}`}
+        >
+          📂 Group Documents
         </Link>
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
@@ -216,6 +223,7 @@ const App: React.FC = () => {
               <Route path="/documents/:documentId/versions" element={<VersionHistoryPage />} />
               <Route path="/collections" element={<CollectionsManagerPage />} />
               <Route path="/groups" element={<GroupsPage />} />
+              <Route path="/group-documents" element={<GroupDocumentsPage />} />
               <Route path="/share/:token" element={<ShareLinkPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>

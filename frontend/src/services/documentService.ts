@@ -25,7 +25,7 @@ export interface Document {
 }
 
 export interface Label {
-  id: number;
+  id: string;
   name: string;
 }
 
@@ -430,7 +430,7 @@ export const createLabel = async (name: string): Promise<Label> => {
   return res.json();
 };
 
-export const setDocumentLabels = async (documentId: number, labelIds: number[]): Promise<unknown> => {
+export const setDocumentLabels = async (documentId: number, labelIds: string[]): Promise<unknown> => {
   const res = await fetch(`${API_BASE_URL}/documents/${documentId}/labels/`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ label_ids: labelIds }) });
   if (!res.ok) throw new Error('Failed to set labels');
   return res.json();
@@ -456,10 +456,10 @@ export const setDocumentCollections = async (documentId: number, collectionIds: 
 };
 
 // Search
-export const searchStandard = async (q: string, labelIds: number[] = []): Promise<Document[]> => {
+export const searchStandard = async (q: string, labelIds: string[] = []): Promise<Document[]> => {
   const params = new URLSearchParams();
   if (q) params.append('q', q);
-  labelIds.forEach(id => params.append('label_ids', String(id)));
+  labelIds.forEach(id => params.append('label_ids', id));
   const res = await fetch(`${API_BASE_URL}/search/standard/?${params.toString()}`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Search failed');
   return res.json();
@@ -1030,4 +1030,158 @@ export const updateShareRole = async (
   });
   if (!res.ok) throw new Error('Failed to update share role');
   return res.json();
+};
+
+// ============ GROUP DOCUMENTS ============
+
+export interface GroupWithDocuments {
+  id: number;
+  name: string;
+  document_count: number;
+  member_count: number;
+}
+
+export interface GroupDocument extends Document {
+  group_role?: string;
+}
+
+export const getGroupsWithDocuments = async (): Promise<GroupWithDocuments[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/groups/with-documents/`, {
+      method: 'GET',
+      headers: authHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching groups with documents:', error);
+    throw error;
+  }
+};
+
+export const getGroupDocuments = async (groupId: number): Promise<GroupDocument[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/groups/${groupId}/documents/`, {
+      method: 'GET',
+      headers: authHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching group documents:', error);
+    throw error;
+  }
+};
+
+// ============ DOCUMENT ACL MANAGEMENT ============
+
+export interface ACLEntry {
+  id: string;
+  subject_type: 'user' | 'group';
+  subject_id: string;
+  subject_name?: string;
+  role: 'VIEWER' | 'EDITOR' | 'OWNER';
+  expires_at: string | null;
+  created_at: string;
+}
+
+export const getDocumentACLs = async (documentId: number): Promise<ACLEntry[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/documents/${documentId}/acl/`, {
+      method: 'GET',
+      headers: authHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching document ACLs:', error);
+    throw error;
+  }
+};
+
+export const createDocumentACL = async (
+  documentId: number,
+  subjectType: 'user' | 'group',
+  subjectId: string | number,
+  role: 'VIEWER' | 'EDITOR' | 'OWNER',
+  expiresAt?: string | null
+): Promise<ACLEntry> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/documents/${documentId}/acl/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        subject_type: subjectType,
+        subject_id: String(subjectId),
+        role,
+        expires_at: expiresAt || null,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error creating document ACL:', error);
+    throw error;
+  }
+};
+
+export const updateDocumentACL = async (
+  documentId: number,
+  aclId: string,
+  role?: 'VIEWER' | 'EDITOR' | 'OWNER',
+  expiresAt?: string | null
+): Promise<ACLEntry> => {
+  try {
+    const body: Record<string, unknown> = {};
+    if (role) body.role = role;
+    if (expiresAt !== undefined) body.expires_at = expiresAt;
+
+    const response = await fetch(`${API_BASE_URL}/documents/${documentId}/acl/${aclId}/`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating document ACL:', error);
+    throw error;
+  }
+};
+
+export const deleteDocumentACL = async (documentId: number, aclId: string): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/documents/${documentId}/acl/${aclId}/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Error deleting document ACL:', error);
+    throw error;
+  }
 };

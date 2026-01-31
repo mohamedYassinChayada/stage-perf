@@ -5,8 +5,20 @@ from django.utils import timezone
 from django.db.models import Q
 
 
+# Define role hierarchy for conflict resolution - highest privilege wins
+ROLE_HIERARCHY = {
+	Role.OWNER: 3,
+	Role.EDITOR: 2,
+	Role.VIEWER: 1,
+}
+
+
 def get_user_effective_role(user, document: Document) -> str:
-	"""Get the highest role a user has for a document (direct ACL, group ACL, or ownership)."""
+	"""Get the highest role a user has for a document (ownership, direct ACL, or group ACL).
+	
+	When a user has multiple access rights (e.g., direct user ACL + group ACL),
+	this function resolves conflicts by returning the highest privilege role.
+	"""
 	if not user or not user.is_authenticated:
 		return None
 	
@@ -14,20 +26,25 @@ def get_user_effective_role(user, document: Document) -> str:
 	if user.is_staff or user.is_superuser:
 		return Role.OWNER
 	
-	# Check if user is the owner
-	if document.owner_id == user.id:
-		return Role.OWNER
+	# Collect all applicable roles
+	roles = []
 	
-	# Check direct user ACLs
-	user_acls = ACL.objects.filter(
+	# Check ownership
+	if document.owner_id == user.id:
+		roles.append(Role.OWNER)
+	
+	# Check direct user ACLs (filter out expired ones)
+	user_acl = ACL.objects.filter(
 		document=document, 
 		subject_type='user', 
 		subject_id=str(user.id)
 	).filter(
 		Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-	)
+	).first()
+	if user_acl:
+		roles.append(user_acl.role)
 	
-	# Check group ACLs
+	# Check group ACLs (filter out expired ones)
 	user_groups = user.groups.values_list('id', flat=True)
 	group_acls = ACL.objects.filter(
 		document=document,
@@ -36,16 +53,15 @@ def get_user_effective_role(user, document: Document) -> str:
 	).filter(
 		Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
 	)
+	for acl in group_acls:
+		roles.append(acl.role)
 	
-	# Get all applicable ACLs and find the highest role
-	all_acls = list(user_acls) + list(group_acls)
-	if not all_acls:
+	# If no roles found, user has no access
+	if not roles:
 		return None
 	
-	# Role hierarchy: OWNER > EDITOR > VIEWER
-	role_priority = {Role.OWNER: 3, Role.EDITOR: 2, Role.VIEWER: 1}
-	highest_role = max(all_acls, key=lambda acl: role_priority.get(acl.role, 0))
-	return highest_role.role
+	# Return highest privilege role (conflict resolution)
+	return max(roles, key=lambda r: ROLE_HIERARCHY.get(r, 0))
 
 
 def user_can_perform_action(user, document: Document, action: str) -> bool:

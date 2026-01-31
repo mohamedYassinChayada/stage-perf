@@ -59,9 +59,15 @@ urlpatterns = [
 
     # Groups
     path('groups/', views.groups_list_create, name='groups_list_create'),
+    path('groups/with-documents/', views.groups_with_documents, name='groups_with_documents'),
     path('groups/<int:group_id>/', views.group_detail, name='group_detail'),
     path('groups/<int:group_id>/members/', views.group_members, name='group_members'),
     path('groups/<int:group_id>/members/<int:user_id>/', views.group_member_remove, name='group_member_remove'),
+    path('groups/<int:group_id>/documents/', views.group_documents, name='group_documents'),
+
+    # Document ACL Management
+    path('documents/<int:document_id>/acl/', views.document_acl_list_create, name='document_acl_list_create'),
+    path('documents/<int:document_id>/acl/<uuid:acl_id>/', views.document_acl_detail, name='document_acl_detail'),
 
     # Share Links
     path('documents/<int:document_id>/share-links/', views.document_share_links, name='document_share_links'),

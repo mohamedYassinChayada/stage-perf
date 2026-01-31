@@ -44,13 +44,13 @@ const DocumentsPage: React.FC = () => {
   const [labels, setLabels] = useState<Label[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [labelManagerDocId, setLabelManagerDocId] = useState<number | null>(null);
-  const [labelSelection, setLabelSelection] = useState<number[]>([]);
+  const [labelSelection, setLabelSelection] = useState<string[]>([]);
   const [newLabelName, setNewLabelName] = useState('');
   const [collectionManagerDocId, setCollectionManagerDocId] = useState<number | null>(null);
   const [collectionSelection, setCollectionSelection] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [deepQuery, setDeepQuery] = useState('');
-  const [searchLabels, setSearchLabels] = useState<number[]>([]);
+  const [searchLabels, setSearchLabels] = useState<string[]>([]);
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchResults, setSearchResults] = useState<Document[]>([]);
@@ -236,7 +236,7 @@ const DocumentsPage: React.FC = () => {
     setLabelSelection(current);
   };
 
-  const toggleLabelSelection = (id: number): void => {
+  const toggleLabelSelection = (id: string): void => {
     setLabelSelection(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 

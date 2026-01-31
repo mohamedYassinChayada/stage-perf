@@ -1223,7 +1223,9 @@ def share_update_delete(request, share_id: str):
 @api_view(['GET'])
 def labels_list(request):
     items = Label.objects.all().values('id', 'name')
-    return Response(list(items), status=200)
+    # Convert UUID to string for JSON serialization
+    result = [{'id': str(item['id']), 'name': item['name']} for item in items]
+    return Response(result, status=200)
 
 
 @swagger_auto_schema(method='post', tags=['Labels'])
@@ -1244,7 +1246,9 @@ def document_set_labels(request, pk: int):
     try:
         DocumentLabel.objects.filter(document=doc).delete()
         for lid in ids:
-            DocumentLabel.objects.create(document=doc, label_id=lid)
+            # Validate that the label exists before creating the association
+            label = get_object_or_404(Label, id=lid)
+            DocumentLabel.objects.create(document=doc, label=label)
         return Response({'ok': True}, status=200)
     except Exception as e:
         return Response({'error': str(e)}, status=400)
@@ -2109,3 +2113,265 @@ def document_restore_version(request, document_id):
         
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============ GROUP DOCUMENTS ============
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get all documents shared with a specific group via ACL",
+    operation_summary="List Group Documents",
+    responses={
+        200: DocumentListSerializer(many=True),
+        403: "Access denied - user is not a member of this group",
+        404: "Group not found"
+    },
+    tags=['Groups']
+)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def group_documents(request, group_id):
+    """Get all documents shared with a specific group."""
+    # Check if group exists
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if user is a member of this group or is staff
+    is_member = request.user.groups.filter(id=group_id).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Access denied. You are not a member of this group.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Get all documents shared with this group via ACL
+    group_acls = ACL.objects.filter(
+        subject_type='group',
+        subject_id=str(group_id)
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+    ).select_related('document')
+    
+    # Get unique documents
+    document_ids = group_acls.values_list('document_id', flat=True).distinct()
+    documents = Document.objects.filter(id__in=document_ids).order_by('-updated_at')
+    
+    # Create response with role info
+    result = []
+    for doc in documents:
+        doc_acl = group_acls.filter(document=doc).first()
+        doc_data = DocumentListSerializer(doc, context={'request': request}).data
+        doc_data['group_role'] = doc_acl.role if doc_acl else None
+        result.append(doc_data)
+    
+    return Response(result)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get documents grouped by all user's groups with document counts",
+    operation_summary="List All Groups with Document Counts",
+    responses={200: "List of groups with document counts"},
+    tags=['Groups']
+)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def groups_with_documents(request):
+    """Get all user's groups with document counts for each."""
+    # Get user's groups (or all groups for admin)
+    if request.user.is_staff or request.user.is_superuser:
+        groups = Group.objects.all()
+    else:
+        groups = request.user.groups.all()
+    
+    result = []
+    for group in groups:
+        # Count documents shared with this group
+        doc_count = ACL.objects.filter(
+            subject_type='group',
+            subject_id=str(group.id)
+        ).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        ).values('document_id').distinct().count()
+        
+        result.append({
+            'id': group.id,
+            'name': group.name,
+            'document_count': doc_count,
+            'member_count': group.user_set.count()
+        })
+    
+    return Response(result)
+
+
+# ============ ACL MANAGEMENT ============
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get all ACL entries for a document",
+    operation_summary="List Document ACLs",
+    responses={200: ACLSerializer(many=True)},
+    tags=['ACL']
+)
+@swagger_auto_schema(
+    method='post',
+    operation_description="Add a new ACL entry to a document (grant access to user or group)",
+    operation_summary="Create Document ACL",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'subject_type': openapi.Schema(type=openapi.TYPE_STRING, enum=['user', 'group'], description="Type of subject"),
+            'subject_id': openapi.Schema(type=openapi.TYPE_STRING, description="ID of the user or group"),
+            'role': openapi.Schema(type=openapi.TYPE_STRING, enum=['VIEWER', 'EDITOR', 'OWNER'], description="Access role"),
+            'expires_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', description="Optional expiration date")
+        },
+        required=['subject_type', 'subject_id', 'role']
+    ),
+    responses={201: ACLSerializer, 400: "Bad request", 403: "Access denied"},
+    tags=['ACL']
+)
+@api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def document_acl_list_create(request, document_id):
+    """List or create ACL entries for a document."""
+    document = get_object_or_404(Document, id=document_id)
+    
+    # Check if user has SHARE permission
+    if not user_can_perform_action(request.user, document, Action.SHARE):
+        return Response({'error': 'Access denied. SHARE permission required.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'GET':
+        acls = ACL.objects.filter(document=document)
+        
+        # Enrich with subject names
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        result = []
+        for acl in acls:
+            acl_data = ACLSerializer(acl).data
+            
+            if acl.subject_type == 'user':
+                try:
+                    user = User.objects.get(id=int(acl.subject_id))
+                    acl_data['subject_name'] = user.email or user.username
+                except (User.DoesNotExist, ValueError):
+                    acl_data['subject_name'] = f"User #{acl.subject_id}"
+            elif acl.subject_type == 'group':
+                try:
+                    group = Group.objects.get(id=int(acl.subject_id))
+                    acl_data['subject_name'] = group.name
+                except (Group.DoesNotExist, ValueError):
+                    acl_data['subject_name'] = f"Group #{acl.subject_id}"
+            else:
+                acl_data['subject_name'] = acl.subject_id
+            
+            result.append(acl_data)
+        
+        return Response(result)
+    
+    elif request.method == 'POST':
+        subject_type = request.data.get('subject_type')
+        subject_id = request.data.get('subject_id')
+        role = request.data.get('role')
+        expires_at = request.data.get('expires_at')
+        
+        # Validate required fields
+        if not subject_type or not subject_id or not role:
+            return Response({'error': 'subject_type, subject_id, and role are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if subject_type not in ['user', 'group']:
+            return Response({'error': 'subject_type must be "user" or "group"'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if role not in ['VIEWER', 'EDITOR', 'OWNER']:
+            return Response({'error': 'role must be VIEWER, EDITOR, or OWNER'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify subject exists
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        subject_name = None
+        if subject_type == 'user':
+            try:
+                user = User.objects.get(id=int(subject_id))
+                subject_name = user.email or user.username
+            except (User.DoesNotExist, ValueError):
+                return Response({'error': f'User with ID {subject_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+        elif subject_type == 'group':
+            try:
+                group = Group.objects.get(id=int(subject_id))
+                subject_name = group.name
+            except (Group.DoesNotExist, ValueError):
+                return Response({'error': f'Group with ID {subject_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Create or update ACL
+        acl, created = ACL.objects.update_or_create(
+            document=document,
+            subject_type=subject_type,
+            subject_id=str(subject_id),
+            defaults={
+                'role': role,
+                'expires_at': expires_at,
+                'created_by': request.user
+            }
+        )
+        
+        # Log the share action
+        log_document_share(request, document, shared_with=subject_name, role=role)
+        
+        acl_data = ACLSerializer(acl).data
+        acl_data['subject_name'] = subject_name
+        
+        return Response(acl_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@swagger_auto_schema(
+    method='put',
+    operation_description="Update an ACL entry's role or expiration",
+    operation_summary="Update Document ACL",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'role': openapi.Schema(type=openapi.TYPE_STRING, enum=['VIEWER', 'EDITOR', 'OWNER']),
+            'expires_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time')
+        }
+    ),
+    responses={200: ACLSerializer, 403: "Access denied", 404: "ACL not found"},
+    tags=['ACL']
+)
+@swagger_auto_schema(
+    method='delete',
+    operation_description="Remove an ACL entry (revoke access)",
+    operation_summary="Delete Document ACL",
+    responses={204: "No content", 403: "Access denied", 404: "ACL not found"},
+    tags=['ACL']
+)
+@api_view(['PUT', 'DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def document_acl_detail(request, document_id, acl_id):
+    """Update or delete a specific ACL entry."""
+    document = get_object_or_404(Document, id=document_id)
+    acl = get_object_or_404(ACL, id=acl_id, document=document)
+    
+    # Check if user has SHARE permission
+    if not user_can_perform_action(request.user, document, Action.SHARE):
+        return Response({'error': 'Access denied. SHARE permission required.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'DELETE':
+        acl.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    elif request.method == 'PUT':
+        role = request.data.get('role')
+        expires_at = request.data.get('expires_at')
+        
+        if role:
+            if role not in ['VIEWER', 'EDITOR', 'OWNER']:
+                return Response({'error': 'role must be VIEWER, EDITOR, or OWNER'}, status=status.HTTP_400_BAD_REQUEST)
+            acl.role = role
+        
+        if 'expires_at' in request.data:
+            acl.expires_at = expires_at
+        
+        acl.save()
+        return Response(ACLSerializer(acl).data)
