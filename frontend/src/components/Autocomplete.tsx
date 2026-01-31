@@ -18,7 +18,9 @@ const Autocomplete: React.FC<AutocompleteProps> = ({ items, value, onChange, pla
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Derive display text from selected value
   const selectedItem = items.find(i => String(i.id) === value);
@@ -40,6 +42,20 @@ const Autocomplete: React.FC<AutocompleteProps> = ({ items, value, onChange, pla
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Calculate dropdown position when opening
+  useEffect(() => {
+    if (open && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: 'fixed',
+        left: rect.left,
+        width: rect.width,
+        bottom: window.innerHeight - rect.top,
+        maxHeight: 200,
+      });
+    }
+  }, [open]);
 
   const filtered = items.filter(item => {
     const q = query.toLowerCase();
@@ -81,6 +97,7 @@ const Autocomplete: React.FC<AutocompleteProps> = ({ items, value, onChange, pla
   return (
     <div className="autocomplete" ref={wrapperRef}>
       <input
+        ref={inputRef}
         className="autocomplete-input"
         type="text"
         value={query}
@@ -97,7 +114,7 @@ const Autocomplete: React.FC<AutocompleteProps> = ({ items, value, onChange, pla
         required={!value}
       />
       {open && (
-        <div className="autocomplete-dropdown">
+        <div className="autocomplete-dropdown" style={dropdownStyle}>
           {filtered.length === 0 ? (
             <div className="autocomplete-empty">No matches found</div>
           ) : (

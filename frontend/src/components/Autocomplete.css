@@ -22,17 +22,17 @@
 
 .autocomplete-dropdown {
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 0;
   right: 0;
   max-height: 200px;
   overflow-y: auto;
   background: var(--card-bg, white);
   border: 1px solid var(--border-color, #dee2e6);
-  border-top: none;
-  border-radius: 0 0 6px 6px;
-  box-shadow: 0 4px 12px var(--shadow-color, rgba(0, 0, 0, 0.1));
-  z-index: 100;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  box-shadow: 0 -4px 12px var(--shadow-color, rgba(0, 0, 0, 0.1));
+  z-index: 1000;
 }
 
 .autocomplete-item {

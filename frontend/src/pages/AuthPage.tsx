@@ -25,7 +25,7 @@ const AuthPage: React.FC = () => {
         await register(username, password, email);
       }
       setStatus('Success');
-      navigate('/documents');
+      navigate('/ocr');
     } catch (err) {
       setStatus('Failed');
       showSnackbar((err as Error).message, 'error');

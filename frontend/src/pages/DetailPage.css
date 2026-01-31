@@ -330,12 +330,24 @@
   gap: 10px;
   align-items: flex-end;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .detail-form-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  position: relative;
+}
+
+/* Allow autocomplete dropdown to overflow the card */
+.detail-card-body .autocomplete {
+  position: relative;
+}
+
+.detail-card-body .autocomplete-dropdown {
+  position: fixed;
+  z-index: 9999;
 }
 
 .detail-form-group label {

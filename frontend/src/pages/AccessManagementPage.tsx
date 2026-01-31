@@ -256,11 +256,18 @@ const AccessManagementPage: React.FC = () => {
                           ) : (
                             <span
                               className={getRoleBadgeClass(s.role)}
-                              style={{ cursor: 'pointer' }}
+                              style={{ 
+                                cursor: 'pointer', 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                paddingRight: '6px'
+                              }}
                               onClick={() => setEditingShareId(s.id)}
                               title="Click to change role"
                             >
                               {s.role}
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </span>
                           )}
                         </td>
