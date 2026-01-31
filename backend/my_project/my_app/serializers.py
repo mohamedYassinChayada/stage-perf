@@ -410,7 +410,7 @@ class ShareLinkSerializer(serializers.ModelSerializer):
 class ShareLinkCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShareLink
-        fields = ['role', 'expires_at']
+        fields = ['expires_at']
     
     def create(self, validated_data):
         import secrets

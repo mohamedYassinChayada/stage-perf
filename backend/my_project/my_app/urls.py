@@ -28,11 +28,14 @@ urlpatterns = [
     path('auth/login/', views.login_view, name='auth_login'),
     path('auth/logout/', views.logout_view, name='auth_logout'),
     path('auth/users/', views.list_users, name='auth_users'),
+    path('auth/profile/', views.user_profile, name='auth_profile'),
+    path('auth/change-password/', views.change_password, name='auth_change_password'),
+    path('auth/avatar/', views.upload_avatar, name='auth_avatar'),
 
     # Sharing & ACL
     path('documents/<int:pk>/share/', views.document_share_create, name='document_share_create'),
     path('documents/<int:pk>/shares/', views.document_shares_list, name='document_shares_list'),
-    path('shares/<uuid:share_id>/', views.share_delete, name='share_delete'),
+    path('shares/<uuid:share_id>/', views.share_update_delete, name='share_update_delete'),
 
     # Attachments
     path('attachments/<uuid:attachment_id>/download/', views.attachment_download, name='attachment_download'),

@@ -9,18 +9,22 @@ import DocumentEditorPage from './pages/DocumentEditorPage';
 import AuthPage from './pages/AuthPage';
 import { me, logout, createDocumentFromHTML } from './services/documentService';
 import { showSnackbar } from './components/Snackbar';
+import UserMenu from './components/UserMenu';
 import CollectionsManagerPage from './pages/CollectionsManagerPage';
 import AccessManagementPage from './pages/AccessManagementPage';
 import GroupsPage from './pages/GroupsPage';
 import ShareLinkPage from './pages/ShareLinkPage';
 import AuditLogPage from './pages/AuditLogPage';
 import VersionHistoryPage from './pages/VersionHistoryPage';
+import SettingsPage from './pages/SettingsPage';
 import SnackbarContainer from './components/Snackbar';
 import { PageCacheProvider } from './contexts/PageCacheContext';
 
 interface UserInfo {
   authenticated: boolean;
   username: string;
+  email?: string;
+  avatar_url?: string | null;
 }
 
 // Navigation component
@@ -85,12 +89,14 @@ const Navigation: React.FC = () => {
           👥 Groups
         </Link>
       </div>
-      <div className="nav-user" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
         {user?.authenticated ? (
-          <>
-            <span>Signed in as: <strong>{user.username}</strong></span>
-            <button className="btn btn-secondary" onClick={onLogout}>Logout</button>
-          </>
+          <UserMenu
+            username={user.username}
+            email={user.email}
+            avatarUrl={user.avatar_url}
+            onLogout={onLogout}
+          />
         ) : (
           <Link to="/auth" className="btn btn-primary">Login</Link>
         )}
@@ -187,6 +193,12 @@ const HomePage: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  React.useEffect(() => {
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.documentElement.classList.add('dark-mode');
+    }
+  }, []);
+
   return (
     <Router>
       <PageCacheProvider>
@@ -205,6 +217,7 @@ const App: React.FC = () => {
               <Route path="/collections" element={<CollectionsManagerPage />} />
               <Route path="/groups" element={<GroupsPage />} />
               <Route path="/share/:token" element={<ShareLinkPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </div>
           <SnackbarContainer />

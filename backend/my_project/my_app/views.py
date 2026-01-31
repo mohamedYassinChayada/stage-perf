@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-from .models import Document, QRLink, ACL, Attachment, Label, Collection, DocumentLabel, DocumentCollection, ShareLink, DocumentVersion, AuditLog, Action
+from .models import Document, QRLink, ACL, Attachment, Label, Collection, DocumentLabel, DocumentCollection, ShareLink, DocumentVersion, AuditLog, Action, UserProfile
 from django.contrib.auth.models import Group
 from .serializers import (
     OCRUploadSerializer, OCRResponseSerializer, OCRErrorSerializer,
@@ -857,7 +857,20 @@ def register(request):
 def me(request):
     if not request.user or not request.user.is_authenticated:
         return Response({'authenticated': False}, status=200)
-    return Response({'authenticated': True, 'id': request.user.id, 'username': request.user.username, 'email': request.user.email}, status=200)
+    avatar_url = None
+    try:
+        profile = request.user.profile
+        if profile.avatar:
+            avatar_url = request.build_absolute_uri(profile.avatar.url)
+    except UserProfile.DoesNotExist:
+        pass
+    return Response({
+        'authenticated': True,
+        'id': request.user.id,
+        'username': request.user.username,
+        'email': request.user.email,
+        'avatar_url': avatar_url
+    }, status=200)
 
 
 @swagger_auto_schema(
@@ -905,6 +918,139 @@ def list_users(request):
     User = get_user_model()
     users = User.objects.all().values('id', 'username', 'email')
     return Response(list(users), status=200)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Get current user profile",
+    tags=['Auth']
+)
+@swagger_auto_schema(
+    method='put',
+    operation_description="Update user profile (email)",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'email': openapi.Schema(type=openapi.TYPE_STRING),
+        }
+    ),
+    tags=['Auth']
+)
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def user_profile(request):
+    """Get or update user profile."""
+    user = request.user
+    avatar_url = None
+    try:
+        profile = user.profile
+        if profile.avatar:
+            avatar_url = request.build_absolute_uri(profile.avatar.url)
+    except UserProfile.DoesNotExist:
+        pass
+
+    if request.method == 'GET':
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'avatar_url': avatar_url,
+        })
+
+    elif request.method == 'PUT':
+        email = request.data.get('email')
+        if email is not None:
+            user.email = email
+            user.save(update_fields=['email'])
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'avatar_url': avatar_url,
+            'message': 'Profile updated successfully'
+        })
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Change user password",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'current_password': openapi.Schema(type=openapi.TYPE_STRING),
+            'new_password': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['current_password', 'new_password']
+    ),
+    tags=['Auth']
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Change the current user's password."""
+    current_password = request.data.get('current_password')
+    new_password = request.data.get('new_password')
+
+    if not current_password or not new_password:
+        return Response({'error': 'current_password and new_password are required'}, status=400)
+
+    if not request.user.check_password(current_password):
+        return Response({'error': 'Current password is incorrect'}, status=400)
+
+    if len(new_password) < 4:
+        return Response({'error': 'New password must be at least 4 characters'}, status=400)
+
+    request.user.set_password(new_password)
+    request.user.save()
+
+    # Regenerate token
+    Token.objects.filter(user=request.user).delete()
+    token = Token.objects.create(user=request.user)
+
+    return Response({
+        'message': 'Password changed successfully',
+        'token': token.key
+    })
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Upload user avatar",
+    tags=['Auth']
+)
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+@permission_classes([IsAuthenticated])
+def upload_avatar(request):
+    """Upload or update user avatar."""
+    if 'avatar' not in request.FILES:
+        return Response({'error': 'No avatar file provided'}, status=400)
+
+    avatar_file = request.FILES['avatar']
+
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if avatar_file.content_type not in allowed_types:
+        return Response({'error': 'Invalid file type. Use JPEG, PNG, GIF, or WebP.'}, status=400)
+
+    # Validate file size (max 2MB)
+    if avatar_file.size > 2 * 1024 * 1024:
+        return Response({'error': 'File too large. Maximum size is 2MB.'}, status=400)
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+    # Delete old avatar if exists
+    if profile.avatar:
+        profile.avatar.delete(save=False)
+
+    profile.avatar = avatar_file
+    profile.save()
+
+    avatar_url = request.build_absolute_uri(profile.avatar.url)
+    return Response({
+        'message': 'Avatar uploaded successfully',
+        'avatar_url': avatar_url
+    })
 
 
 # --- ACL / Sharing ---
@@ -1032,17 +1178,44 @@ def document_shares_list(request, pk: int):
     return Response(result, status=200)
 
 
+@swagger_auto_schema(
+    method='put',
+    operation_description="Update an ACL entry's role",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'role': openapi.Schema(type=openapi.TYPE_STRING, description="New role (VIEWER, EDITOR, OWNER)"),
+        },
+        required=['role']
+    ),
+    tags=['Sharing']
+)
 @swagger_auto_schema(method='delete', tags=['Sharing'])
-@api_view(['DELETE'])
-def share_delete(request, share_id: str):
+@api_view(['PUT', 'DELETE'])
+def share_update_delete(request, share_id: str):
     if not request.user or not request.user.is_authenticated:
         return Response({'error': 'auth required'}, status=401)
     acl = get_object_or_404(ACL, id=share_id)
     document = acl.document
     if document.owner_id != request.user.id:
         return Response({'error': 'forbidden'}, status=403)
-    acl.delete()
-    return Response(status=204)
+
+    if request.method == 'DELETE':
+        acl.delete()
+        return Response(status=204)
+
+    elif request.method == 'PUT':
+        role = request.data.get('role')
+        valid_roles = ['VIEWER', 'EDITOR', 'OWNER']
+        if role not in valid_roles:
+            return Response({'error': f'role must be one of {valid_roles}'}, status=400)
+        acl.role = role
+        acl.save(update_fields=['role'])
+        return Response({
+            'id': str(acl.id),
+            'role': acl.role,
+            'message': 'Role updated successfully'
+        })
 
 
 # --- Labels ---
@@ -1633,18 +1806,19 @@ def document_share_links(request, document_id):
     
     elif request.method == 'POST':
         serializer = ShareLinkCreateSerializer(
-            data=request.data, 
+            data=request.data,
             context={'request': request, 'document': document}
         )
         if serializer.is_valid():
-            share_link = serializer.save()
-            
-            # Create ACL entry for the share link
+            # Force VIEWER role for security - share links should only grant read access
+            share_link = serializer.save(role='VIEWER')
+
+            # Create ACL entry for the share link (always VIEWER)
             ACL.objects.create(
                 document=document,
                 subject_type='share_link',
                 subject_id=str(share_link.id),
-                role=share_link.role,
+                role='VIEWER',
                 expires_at=share_link.expires_at,
                 created_by=request.user
             )

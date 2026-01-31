@@ -186,3 +186,8 @@ class AuditLog(models.Model):
 	context = models.JSONField(null=True, blank=True)
 	share_link = models.ForeignKey(ShareLink, null=True, blank=True, on_delete=models.SET_NULL)
 	qr_link = models.ForeignKey(QRLink, null=True, blank=True, on_delete=models.SET_NULL)
+
+
+class UserProfile(models.Model):
+	user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
+	avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)

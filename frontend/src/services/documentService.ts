@@ -122,6 +122,15 @@ export type DocumentVersion = VersionDetail;
 export interface MeResponse {
   authenticated: boolean;
   username?: string;
+  email?: string;
+  avatar_url?: string | null;
+}
+
+export interface UserProfile {
+  id: number;
+  username: string;
+  email: string;
+  avatar_url: string | null;
 }
 
 export interface ShareLinkAccess {
@@ -765,11 +774,10 @@ export const getDocumentShareLinks = async (documentId: string | number): Promis
 
 export const createShareLink = async (
   documentId: string | number,
-  role: string,
-  expiresAt: string | null = null
+  expiresAt?: string | null
 ): Promise<ShareLink> => {
   try {
-    const body: { role: string; expires_at?: string } = { role };
+    const body: { expires_at?: string } = {};
     if (expiresAt) {
       body.expires_at = expiresAt;
     }
@@ -952,4 +960,74 @@ export const deleteCollection = async (collectionId: number): Promise<{ success:
     console.error('Error deleting collection:', error);
     throw error;
   }
+};
+
+// ============ USER PROFILE & SETTINGS ============
+
+export const getUserProfile = async (): Promise<UserProfile> => {
+  const res = await fetch(`${API_BASE_URL}/auth/profile/`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Failed to load profile');
+  return res.json();
+};
+
+export const updateUserProfile = async (email: string): Promise<UserProfile> => {
+  const res = await fetch(`${API_BASE_URL}/auth/profile/`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error('Failed to update profile');
+  return res.json();
+};
+
+export const changePassword = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<{ message: string; token: string }> => {
+  const res = await fetch(`${API_BASE_URL}/auth/change-password/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Failed to change password');
+  }
+  const data = await res.json();
+  if (data.token) {
+    localStorage.setItem('token', data.token);
+  }
+  return data;
+};
+
+export const uploadAvatar = async (file: File): Promise<{ avatar_url: string }> => {
+  const fd = new FormData();
+  fd.append('avatar', file);
+  const t = getToken();
+  const headers: HeadersInit = t ? { Authorization: `Token ${t}` } : {};
+  const res = await fetch(`${API_BASE_URL}/auth/avatar/`, {
+    method: 'POST',
+    headers,
+    body: fd,
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Failed to upload avatar');
+  }
+  return res.json();
+};
+
+// ============ ACL INLINE EDITING ============
+
+export const updateShareRole = async (
+  shareId: number | string,
+  role: string
+): Promise<{ id: string; role: string; message: string }> => {
+  const res = await fetch(`${API_BASE_URL}/shares/${shareId}/`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ role }),
+  });
+  if (!res.ok) throw new Error('Failed to update share role');
+  return res.json();
 };

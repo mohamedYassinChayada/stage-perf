@@ -2,7 +2,7 @@
 
 ## 1. Etude de l'existant
 
-### a. Description de la solution actuelle
+### a. Description de la solution actuelleff
 
 Avant la mise en place du present projet, la gestion documentaire au sein de l'organisme reposait sur des pratiques essentiellement manuelles et fragmentees. Les documents etaient stockes sous forme de fichiers physiques ou dans des repertoires partages sans structure normalisee. La digitalisation des documents papier se faisait de maniere ponctuelle, sans outil dedie d'OCR integre au flux de travail. Le partage de documents s'effectuait par courrier electronique ou via des supports amovibles, sans controle d'acces centralise ni tracabilite des consultations et modifications.
 

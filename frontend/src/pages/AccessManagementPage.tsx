@@ -3,10 +3,12 @@ import type { FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   listShares, addShare, deleteShare, getDocument, listUsers,
-  listGroups, getDocumentShareLinks, createShareLink, revokeShareLink
+  listGroups, getDocumentShareLinks, createShareLink, revokeShareLink,
+  updateShareRole
 } from '../services/documentService';
 import type { Document, Share, User, Group, ShareLink } from '../services/documentService';
 import { showSnackbar } from '../components/Snackbar';
+import Autocomplete from '../components/Autocomplete';
 import './DetailPage.css';
 
 interface AccessForm {
@@ -17,7 +19,6 @@ interface AccessForm {
 }
 
 interface ShareLinkForm {
-  role: string;
   expires_at: string;
 }
 
@@ -32,8 +33,9 @@ const AccessManagementPage: React.FC = () => {
   const [form, setForm] = useState<AccessForm>({ subject_type: 'user', subject_id: '', role: 'VIEWER', expires_at: '' });
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [shareLinkForm, setShareLinkForm] = useState<ShareLinkForm>({ role: 'VIEWER', expires_at: '' });
+  const [shareLinkForm, setShareLinkForm] = useState<ShareLinkForm>({ expires_at: '' });
   const [activeTab, setActiveTab] = useState<'access' | 'links'>('access');
+  const [editingShareId, setEditingShareId] = useState<number | null>(null);
 
   const load = async (): Promise<void> => {
     try {
@@ -62,6 +64,20 @@ const AccessManagementPage: React.FC = () => {
 
   const onAdd = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+
+    // Duplicate prevention
+    const existing = shares.find(
+      s => s.subject_type === form.subject_type && s.subject_id === form.subject_id
+    );
+    if (existing) {
+      const name = form.subject_type === 'user'
+        ? users.find(u => u.id === parseInt(form.subject_id))?.username || `User #${form.subject_id}`
+        : groups.find(g => g.id === parseInt(form.subject_id))?.name || `Group #${form.subject_id}`;
+      if (!window.confirm(
+        `${name} already has ${existing.role} access. Update to ${form.role}?`
+      )) return;
+    }
+
     try {
       await addShare(id!, form.subject_type, form.subject_id, form.role, form.expires_at || undefined);
       showSnackbar('Access added successfully!', 'success');
@@ -83,12 +99,23 @@ const AccessManagementPage: React.FC = () => {
     }
   };
 
+  const onRoleChange = async (shareId: number, newRole: string): Promise<void> => {
+    try {
+      await updateShareRole(shareId, newRole);
+      showSnackbar('Role updated', 'success');
+      setEditingShareId(null);
+      await load();
+    } catch (e) {
+      showSnackbar((e as Error).message || 'Failed to update role', 'error');
+    }
+  };
+
   const onCreateShareLink = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     try {
-      await createShareLink(id!, shareLinkForm.role, shareLinkForm.expires_at || undefined);
+      await createShareLink(id!, shareLinkForm.expires_at || undefined);
       showSnackbar('Share link created!', 'success');
-      setShareLinkForm({ role: 'VIEWER', expires_at: '' });
+      setShareLinkForm({ expires_at: '' });
       await load();
     } catch (e) {
       showSnackbar((e as Error).message || 'Failed to create share link', 'error');
@@ -117,6 +144,18 @@ const AccessManagementPage: React.FC = () => {
   const getRoleBadgeClass = (role: string): string => {
     return `detail-badge detail-badge--${role.toLowerCase()}`;
   };
+
+  const userItems = users.map(u => ({
+    id: u.id,
+    label: u.username,
+    sublabel: u.email,
+  }));
+
+  const groupItems = groups.map(g => ({
+    id: g.id,
+    label: g.name,
+    sublabel: `${g.member_count} members`,
+  }));
 
   if (loading) {
     return (
@@ -201,8 +240,31 @@ const AccessManagementPage: React.FC = () => {
                             : groups.find(g => g.id === parseInt(s.subject_id))?.name || `Group #${s.subject_id}`
                           }
                         </td>
-                        <td><span className={getRoleBadgeClass(s.role)}>{s.role}</span></td>
-                        <td style={{ fontSize: 12, color: '#868e96' }}>{s.expires_at ? new Date(s.expires_at).toLocaleString() : 'Never'}</td>
+                        <td>
+                          {editingShareId === s.id ? (
+                            <select
+                              value={s.role}
+                              onChange={e => onRoleChange(s.id, e.target.value)}
+                              onBlur={() => setEditingShareId(null)}
+                              autoFocus
+                              style={{ padding: '3px 8px', fontSize: 12, borderRadius: 6 }}
+                            >
+                              <option value="VIEWER">VIEWER</option>
+                              <option value="EDITOR">EDITOR</option>
+                              <option value="OWNER">OWNER</option>
+                            </select>
+                          ) : (
+                            <span
+                              className={getRoleBadgeClass(s.role)}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => setEditingShareId(s.id)}
+                              title="Click to change role"
+                            >
+                              {s.role}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ fontSize: 12, color: 'var(--text-muted, #868e96)' }}>{s.expires_at ? new Date(s.expires_at).toLocaleString() : 'Never'}</td>
                         <td>
                           <button className="detail-btn detail-btn--danger detail-btn--sm" onClick={() => onDelete(s.id)}>Remove</button>
                         </td>
@@ -230,15 +292,19 @@ const AccessManagementPage: React.FC = () => {
                 <div className="detail-form-group" style={{ flex: 1 }}>
                   <label>{form.subject_type === 'user' ? 'User' : 'Group'}</label>
                   {form.subject_type === 'user' ? (
-                    <select value={form.subject_id} onChange={e => setForm(f => ({ ...f, subject_id: e.target.value }))} required>
-                      <option value="">Select user...</option>
-                      {users.map(u => <option key={u.id} value={u.id}>{u.username} ({u.email})</option>)}
-                    </select>
+                    <Autocomplete
+                      items={userItems}
+                      value={form.subject_id}
+                      onChange={id => setForm(f => ({ ...f, subject_id: id }))}
+                      placeholder="Search users..."
+                    />
                   ) : (
-                    <select value={form.subject_id} onChange={e => setForm(f => ({ ...f, subject_id: e.target.value }))} required>
-                      <option value="">Select group...</option>
-                      {groups.map(g => <option key={g.id} value={g.id}>{g.name} ({g.member_count} members)</option>)}
-                    </select>
+                    <Autocomplete
+                      items={groupItems}
+                      value={form.subject_id}
+                      onChange={id => setForm(f => ({ ...f, subject_id: id }))}
+                      placeholder="Search groups..."
+                    />
                   )}
                 </div>
                 <div className="detail-form-group">
@@ -280,7 +346,7 @@ const AccessManagementPage: React.FC = () => {
                       <div className="share-link-card-info">
                         <span className={getRoleBadgeClass(sl.role)}>{sl.role}</span>
                         {sl.expires_at && (
-                          <span style={{ fontSize: 12, color: '#868e96' }}>Expires: {new Date(sl.expires_at).toLocaleString()}</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-muted, #868e96)' }}>Expires: {new Date(sl.expires_at).toLocaleString()}</span>
                         )}
                         {sl.is_revoked && <span className="detail-badge detail-badge--revoked">Revoked</span>}
                         {sl.is_expired && <span className="detail-badge detail-badge--expired">Expired</span>}
@@ -314,12 +380,8 @@ const AccessManagementPage: React.FC = () => {
             <div className="detail-card-body">
               <form onSubmit={onCreateShareLink} className="detail-form">
                 <div className="detail-form-group">
-                  <label>Role</label>
-                  <select value={shareLinkForm.role} onChange={e => setShareLinkForm(f => ({ ...f, role: e.target.value }))}>
-                    <option value="VIEWER">Viewer</option>
-                    <option value="EDITOR">Editor</option>
-                    <option value="OWNER">Owner</option>
-                  </select>
+                  <label>Access Level</label>
+                  <span style={{ fontSize: 13, color: 'var(--text-primary, #495057)', padding: '7px 0' }}>View only</span>
                 </div>
                 <div className="detail-form-group">
                   <label>Expires (optional)</label>
@@ -327,6 +389,7 @@ const AccessManagementPage: React.FC = () => {
                 </div>
                 <button className="detail-btn detail-btn--success" type="submit" style={{ alignSelf: 'flex-end' }}>Create Share Link</button>
               </form>
+              <p style={{ fontSize: 12, color: 'var(--text-muted, #868e96)', marginTop: 10 }}>Share links always grant view-only access for security.</p>
             </div>
           </div>
         </>
