@@ -587,62 +587,73 @@ const DocumentsPage: React.FC = () => {
         <h1>Document Management</h1>
         <p>Manage your documents with automatic QR code generation</p>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-upload"
           onClick={() => setShowCreateForm(!showCreateForm)}
         >
-          {showCreateForm ? 'Cancel' : 'Upload Document'}
+          {showCreateForm ? 'Cancel' : '+ Upload Document'}
         </button>
-        <div style={{ marginTop: 12 }}>
-          <h3 style={{ marginBottom: 8 }}>Search</h3>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input placeholder="Search by title..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            <button className="btn btn-secondary" onClick={handleStandardSearch}>Search</button>
-            <button className="btn" onClick={clearSearch}>Clear</button>
+        
+        <div className="search-section">
+          <h3>Search & Filter</h3>
+          
+          {/* Title Search Row */}
+          <div className="search-row">
+            <input 
+              type="text"
+              placeholder="Search by title..." 
+              value={searchQuery} 
+              onChange={e => setSearchQuery(e.target.value)} 
+              className="search-input"
+            />
+            <button className="btn btn-light" onClick={handleStandardSearch}>Search</button>
+            <button className="btn btn-ghost" onClick={clearSearch}>Clear</button>
           </div>
-          <div style={{ marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {labels.map(l => (
-              <label key={l.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <input type="checkbox" checked={searchLabels.includes(l.id)} onChange={() => setSearchLabels(prev => prev.includes(l.id) ? prev.filter(x => x !== l.id) : [...prev, l.id])} />
-                {l.name}
-              </label>
-            ))}
+          
+          {/* Deep Search & QR Row */}
+          <div className="search-row">
+            <input 
+              type="text"
+              placeholder="Deep search (content)..." 
+              value={deepQuery} 
+              onChange={e => setDeepQuery(e.target.value)} 
+              className="search-input"
+            />
+            <button className="btn btn-light" onClick={handleDeepSearch}>Deep Search</button>
+            <div className="search-divider"></div>
+            <input type="file" accept="image/*" onChange={e => setQrFile(e.target.files?.[0] || null)} />
+            <button className="btn btn-light" disabled={!qrFile} onClick={handleQRFileSearch}>Search by QR</button>
+            <button
+              className="btn btn-accent"
+              onClick={startCameraScanner}
+              title="Scan QR code with camera"
+            >
+              📷 Scan QR
+            </button>
           </div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input placeholder="Deep search (content)..." value={deepQuery} onChange={e => setDeepQuery(e.target.value)} />
-            <button className="btn btn-secondary" onClick={handleDeepSearch}>Deep search</button>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input type="file" accept="image/*" onChange={e => setQrFile(e.target.files?.[0] || null)} />
-              <button className="btn btn-secondary" disabled={!qrFile} onClick={handleQRFileSearch}>Search by QR File</button>
+          
+          {/* Ownership Filter Row */}
+          <div className="filter-row">
+            <span className="filter-label">Show:</span>
+            <div className="filter-buttons">
               <button
-                className="btn btn-primary"
-                onClick={startCameraScanner}
-                title="Scan QR code with camera"
+                className={`btn btn-filter ${ownershipFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setOwnershipFilter('all')}
               >
-                Scan QR Code
+                All Documents
+              </button>
+              <button
+                className={`btn btn-filter ${ownershipFilter === 'owned' ? 'active' : ''}`}
+                onClick={() => setOwnershipFilter('owned')}
+              >
+                My Documents
+              </button>
+              <button
+                className={`btn btn-filter ${ownershipFilter === 'shared' ? 'active' : ''}`}
+                onClick={() => setOwnershipFilter('shared')}
+              >
+                Shared with Me
               </button>
             </div>
-          </div>
-          {/* Ownership Filter */}
-          <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontWeight: 500 }}>Show:</span>
-            <button
-              className={`btn ${ownershipFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setOwnershipFilter('all')}
-            >
-              All Documents
-            </button>
-            <button
-              className={`btn ${ownershipFilter === 'owned' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setOwnershipFilter('owned')}
-            >
-              My Documents
-            </button>
-            <button
-              className={`btn ${ownershipFilter === 'shared' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setOwnershipFilter('shared')}
-            >
-              Shared with Me
-            </button>
           </div>
         </div>
       </div>

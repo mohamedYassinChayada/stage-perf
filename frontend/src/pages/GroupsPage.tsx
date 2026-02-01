@@ -47,6 +47,7 @@ const GroupsPage: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<Group | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<GroupMember | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
 
   const loadGroups = async (): Promise<void> => {
     try {
@@ -184,9 +185,16 @@ const GroupsPage: React.FC = () => {
     ? groups.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : groups;
 
-  const availableUsers = users.filter(
-    user => !groupMembers.some(member => member.user_id === user.id)
-  );
+  const availableUsers = users
+    .filter(user => !groupMembers.some(member => member.user_id === user.id))
+    .filter(user => {
+      if (!memberSearchQuery.trim()) return true;
+      const query = memberSearchQuery.toLowerCase();
+      return (
+        user.username.toLowerCase().includes(query) ||
+        (user.email && user.email.toLowerCase().includes(query))
+      );
+    });
 
   if (loading) {
     return (
@@ -318,10 +326,30 @@ const GroupsPage: React.FC = () => {
                 </div>
 
                 {/* Add Members */}
-                {availableUsers.length > 0 && (
+                {users.filter(user => !groupMembers.some(member => member.user_id === user.id)).length > 0 && (
                   <div className="groups-add-section">
                     <h4 className="groups-section-title">Add Members</h4>
-                    <div className="groups-add-user-list">
+                    <div className="groups-member-search">
+                      <input
+                        type="text"
+                        placeholder="Search users by username or email..."
+                        value={memberSearchQuery}
+                        onChange={(e) => setMemberSearchQuery(e.target.value)}
+                        className="groups-member-search-input"
+                      />
+                      {memberSearchQuery && (
+                        <button
+                          type="button"
+                          className="groups-member-search-clear"
+                          onClick={() => setMemberSearchQuery('')}
+                          title="Clear search"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    {availableUsers.length > 0 ? (
+                      <div className="groups-add-user-list">
                       {availableUsers.map(user => (
                         <label
                           key={user.id}
@@ -344,6 +372,11 @@ const GroupsPage: React.FC = () => {
                         </label>
                       ))}
                     </div>
+                    ) : (
+                      <div className="groups-no-search-results">
+                        <p>No users found matching "{memberSearchQuery}"</p>
+                      </div>
+                    )}
                     <button
                       className="groups-add-btn"
                       disabled={selectedUserIds.length === 0}

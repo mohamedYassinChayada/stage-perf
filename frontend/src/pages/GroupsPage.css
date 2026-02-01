@@ -400,6 +400,73 @@
   background: #f8f9fb;
 }
 
+/* Member Search */
+.groups-member-search {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.groups-member-search-input {
+  width: 100%;
+  padding: 10px 36px 10px 14px;
+  border: 1.5px solid #e0e3e8;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.groups-member-search-input:focus {
+  outline: none;
+  border-color: #2b579a;
+  box-shadow: 0 0 0 3px rgba(43, 87, 154, 0.1);
+}
+
+.groups-member-search-input::placeholder {
+  color: #9ca3af;
+}
+
+.groups-member-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: #e9ecef;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.groups-member-search-clear:hover {
+  background: #dee2e6;
+  color: #495057;
+}
+
+.groups-no-search-results {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+  font-size: 0.9rem;
+  background: white;
+  border: 1px dashed #dee2e6;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.groups-no-search-results p {
+  margin: 0;
+}
+
 .groups-add-user-list {
   display: flex;
   flex-direction: column;

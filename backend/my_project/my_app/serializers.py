@@ -241,12 +241,13 @@ class DocumentListSerializer(serializers.ModelSerializer):
     owner_username = serializers.SerializerMethodField()
     labels = serializers.SerializerMethodField()
     collections = serializers.SerializerMethodField()
+    user_role = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
         fields = [
             'id', 'title', 'qr_code_url', 'created_at', 'updated_at',
-            'owner_username', 'labels', 'collections'
+            'owner_username', 'labels', 'collections', 'user_role'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -277,6 +278,15 @@ class DocumentListSerializer(serializers.ModelSerializer):
         if request and request.user and request.user.is_authenticated:
             qs = qs.filter(owner=request.user)
         return list(qs.values('id', 'name', 'parent_id'))
+
+    def get_user_role(self, obj):
+        """Get the current user's role for this document."""
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return None
+        
+        from .permissions import get_user_effective_role
+        return get_user_effective_role(request.user, obj)
 
 
 class DocumentCreateSerializer(serializers.ModelSerializer):
