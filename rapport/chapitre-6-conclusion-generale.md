@@ -8,10 +8,10 @@ Le travail realise au cours des trois sprints peut etre synthetise comme suit :
 
 ```mermaid
 pie title Repartition des fonctionnalites par sprint
-    "Sprint 1 : Authentification et RBAC" : 21
-    "Sprint 2 : OCR et Editeur" : 39
-    "Sprint 3 : Partage et Recherche" : 23
-    "Tests et Integration" : 17
+    "Sprint 1 : Authentification et RBAC" : 18
+    "Sprint 2 : OCR et Editeur" : 32
+    "Sprint 3 : Partage, Recherche et UX" : 35
+    "Tests et Integration" : 15
 ```
 
 *Figure 24 : Repartition de l'effort par sprint*
@@ -20,17 +20,19 @@ pie title Repartition des fonctionnalites par sprint
 
 **Sprint 2** a constitue le coeur fonctionnel du systeme avec l'integration d'un pipeline OCR avance (EasyOCR avec preprocessing d'images), le developpement d'un editeur multi-pages de type traitement de texte (TinyMCE), l'export au format Word, le versionnement des documents et l'organisation par labels et collections.
 
-**Sprint 3** a finalise le systeme avec la generation et la resolution de QR codes, les liens de partage securises avec tokens, et la recherche plein texte exploitant les capacites natives de PostgreSQL (tsvector).
+**Sprint 3** a finalise le systeme avec la generation et la resolution de QR codes, les liens de partage securises avec tokens, la recherche plein texte exploitant les capacites natives de PostgreSQL (tsvector), un service d'event polling pour les mises a jour en temps reel, une page dediee a la gestion des documents de groupe, le support du mode sombre via les variables CSS, et un systeme de notifications unifie (Snackbar).
 
 **Bilan technique du projet :**
 
 | Composant | Indicateur |
 |-----------|-----------|
-| Modeles de donnees | 12 modeles Django (Document, DocumentVersion, Label, Collection, ACL, ShareLink, QRLink, AuditLog, etc.) |
-| Endpoints API | 30+ endpoints REST documentes via Swagger |
-| Pages frontend | 10 pages React avec TypeScript |
-| Lignes de code backend (views.py) | ~1 950 lignes |
-| Lignes de code frontend (services) | ~850 lignes (documentService.ts + ocrService.ts) |
+| Modeles de donnees | 14 modeles Django (Document, DocumentVersion, Label, Collection, ACL, ShareLink, QRLink, AuditLog, GroupOwnership, UserProfile, etc.) |
+| Endpoints API | 35+ endpoints REST documentes via Swagger |
+| Pages frontend | 13+ pages React avec TypeScript |
+| Services frontend | documentService.ts, ocrService.ts, eventService.ts (~1 200 lignes) |
+| Lignes de code backend (views.py) | ~2 500 lignes |
+| Composants reutilisables | Snackbar, UserMenu, WordLikeEditor, Autocomplete |
+| Systeme de cache | PageCacheContext avec TTL de 5 minutes (5 pages cachees) |
 | Technologies integrees | Django 5.2, React 19, EasyOCR, TinyMCE, PostgreSQL, Docker |
 
 ## 2. Difficultes rencontrees
@@ -47,6 +49,8 @@ Au cours du developpement, plusieurs difficultes techniques ont ete rencontrees 
 
 - **Connexion a la base de donnees** : L'utilisation de Neon PostgreSQL (cloud) a necessite l'optimisation des parametres de connexion pour reduire la latence et gerer correctement les variables d'environnement via python-dotenv.
 
+- **Event polling et reactivite** : La mise en place d'un mecanisme de polling adaptatif a necessite de trouver un equilibre entre reactivite (detection rapide des changements) et performance (reduction de la charge reseau). L'implementation d'un intervalle adaptatif (5s a 30s) et la pause automatique lors du changement d'onglet ont permis d'optimiser ce compromis.
+
 ## 3. Competences acquises
 
 Ce stage a permis l'acquisition et le renforcement de nombreuses competences techniques et methodologiques :
@@ -60,13 +64,17 @@ mindmap
       Django REST Framework
       Authentification par token
       Systeme RBAC
-      PostgreSQL avance (tsvector)
+      PostgreSQL avance tsvector
       OCR avec EasyOCR
+      Event polling endpoints
     Frontend
       React 19 avec TypeScript
       Routage client SPA
       Editeur riche TinyMCE
       Export Word docx.js
+      Event polling adaptatif
+      Cache SPA PageCacheContext
+      Variables CSS et theming
     DevOps
       Docker et Docker Compose
       Multi-environnement
@@ -81,7 +89,7 @@ mindmap
 
 - **Developpement backend** : Maitrise de Django REST Framework pour la construction d'API RESTful, implementation d'un systeme d'authentification par token, conception d'un systeme RBAC, integration de la recherche plein texte PostgreSQL.
 
-- **Developpement frontend** : Utilisation avancee de React 19 avec TypeScript, gestion d'etat et de routage avec React Router DOM, integration d'editeur riche (TinyMCE), manipulation du DOM pour le reflow multi-pages.
+- **Developpement frontend** : Utilisation avancee de React 19 avec TypeScript, gestion d'etat et de routage avec React Router DOM, integration d'editeur riche (TinyMCE), manipulation du DOM pour le reflow multi-pages, implementation d'un systeme de cache SPA (PageCacheContext), service d'event polling avec intervalle adaptatif, et theming dynamique via les variables CSS.
 
 - **Traitement d'images et OCR** : Comprehension des techniques de preprocessing d'images (CLAHE, flou gaussien, redimensionnement), utilisation d'EasyOCR pour l'extraction de texte avec detection de positions.
 

@@ -24,7 +24,15 @@ Le troisieme sprint finalise le systeme de gestion documentaire en ajoutant les 
 | T3.8 | Filtrage des resultats par permissions | 5 | Termine |
 | T3.9 | Interface de partage et QR codes (frontend) | 5 | Termine |
 | T3.10 | Interface de recherche avancee (frontend) | 3 | Termine |
-| T3.11 | Tests et validation | 3 | Termine |
+| T3.11 | Event polling pour mises a jour en temps reel | 5 | Termine |
+| T3.12 | Page de gestion des documents de groupe | 5 | Termine |
+| T3.13 | Modele GroupOwnership et suivi de propriete | 3 | Termine |
+| T3.14 | Filtre de propriete et affichage des roles | 3 | Termine |
+| T3.15 | Systeme de notifications Snackbar | 3 | Termine |
+| T3.16 | Variables CSS et support du mode sombre | 3 | Termine |
+| T3.17 | Mise en cache des pages (PageCacheContext) | 3 | Termine |
+| T3.18 | Profil utilisateur et avatar | 3 | Termine |
+| T3.19 | Tests et validation | 3 | Termine |
 
 ## 3. Specification des besoins
 
@@ -42,6 +50,10 @@ graph TB
         U --> UC4[Rechercher par titre<br/>et labels]
         U --> UC5[Rechercher dans le contenu<br/>plein texte]
         U --> UC6[Scanner un QR code<br/>pour acceder a un document]
+        U --> UC9[Gerer les documents<br/>d'un groupe]
+        U --> UC10[Recevoir les mises a jour<br/>en temps reel]
+        U --> UC11[Filtrer par propriete<br/>mes docs / partages]
+        U --> UC12[Changer le theme<br/>mode sombre / clair]
 
         V --> UC7[Acceder a un document<br/>via lien de partage]
         V --> UC8[Acceder a un document<br/>via QR code]
@@ -111,6 +123,45 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    actor U as Utilisateur
+    participant F as Frontend React
+    participant ES as eventService.ts
+    participant B as Backend Django
+    participant DB as PostgreSQL
+
+    Note over U,DB: Scenario : Event polling pour mises a jour en temps reel
+
+    U->>F: Ouvrir un document
+    F->>ES: start(documentId)
+    ES->>ES: pollIntervalMs = 5000ms
+
+    loop Polling periodique
+        ES->>B: GET /api/documents/{id}/events/poll/<br/>?since={lastCheckTime}
+        B->>DB: SELECT AuditLog WHERE document_id<br/>AND ts > since
+        DB-->>B: Evenements recents
+
+        alt Nouveaux evenements
+            B-->>ES: 200 {events: [...], server_time}
+            ES->>F: Notifier callbacks
+            F-->>U: Afficher notification Snackbar
+        else Aucun evenement
+            B-->>ES: 200 {events: []}
+            ES->>ES: Augmenter intervalle si > 5 polls vides
+        end
+    end
+
+    alt Acces revoque (403)
+        B-->>ES: 403 Forbidden
+        ES->>F: Evenement ACCESS_REVOKED
+        ES->>ES: Arreter le polling
+        F-->>U: Afficher "Acces revoque"
+    end
+```
+
+*Figure 19b : Diagramme de sequence -- Event polling en temps reel*
+
+```mermaid
+sequenceDiagram
     actor P as Proprietaire
     participant F as Frontend React
     participant B as Backend Django
@@ -154,7 +205,7 @@ classDiagram
         +text html
         +SearchVector search_tsv
         +User owner
-        +ImageField qr_code
+        +Binary qr_code_data
     }
 
     class ShareLink {
@@ -193,14 +244,32 @@ classDiagram
         +JSON context
     }
 
+    class GroupOwnership {
+        +int id
+        +Group group
+        +User owner
+        +datetime created_at
+    }
+
+    class UserProfile {
+        +int id
+        +User user
+        +ImageField avatar
+    }
+
     Document "1" --> "*" ShareLink : partage via
     Document "1" --> "*" QRLink : accessible via
     Document "1" --> "*" AuditLog : journalise
     ShareLink "0..1" --> "*" AuditLog : reference
     QRLink "0..1" --> "*" AuditLog : reference
+    GroupOwnership --> Group : groupe
+    GroupOwnership --> User : proprietaire
+    UserProfile --> User : profil
 
     note for ShareLink "token: UUID unique\nrole: VIEWER | EDITOR\nrevoked_at: null si actif"
     note for QRLink "code: 'doc-{id}-{timestamp}'\nactive: un seul QR actif par document"
+    note for GroupOwnership "Nouveau : suivi de la\npropriere de chaque groupe"
+    note for UserProfile "Nouveau : avatar utilisateur"
 ```
 
 *Figure 21 : Diagramme de classes -- Sprint 3*
@@ -297,6 +366,15 @@ En complement des environnements precedents, les technologies suivantes ont ete 
 | jsQR | 1.4.0 | Lecture de QR codes cote client (JavaScript) |
 | PostgreSQL SearchVector | Natif | Recherche plein texte (tsvector/tsquery) |
 
+**Technologies d'interface et experience utilisateur :**
+
+| Technologie | Version | Role |
+|------------|---------|------|
+| CSS Variables (Custom Properties) | CSS3 | Theming dynamique (mode sombre/clair) |
+| Snackbar (composant custom) | - | Notifications toast reutilisables |
+| PageCacheContext (React Context) | - | Mise en cache SPA avec TTL de 5 minutes |
+| Event Polling (eventService.ts) | - | Mises a jour quasi temps reel par polling adaptatif |
+
 **Configuration de la recherche plein texte :**
 
 Le champ `search_tsv` de type `SearchVectorField` est defini sur les modeles `Document` et `DocumentVersion`. Ce champ est indexe et mis a jour automatiquement lors des operations d'ecriture. La configuration linguistique utilisee est `'english'`, permettant la lemmatisation et l'elimination des mots vides.
@@ -313,6 +391,22 @@ Le champ `search_tsv` de type `SearchVectorField` est defini sur les modeles `Do
 
 **Page du journal d'audit (AuditLogPage.tsx)** : Cette page affiche l'ensemble des evenements audites pour les documents de l'utilisateur. Chaque entree comprend le type d'action (VIEW, EDIT, SHARE, EXPORT), l'acteur, le document concerne, l'adresse IP, le User-Agent et la date. Les entrees liees a un acces via lien de partage ou QR code sont signalees.
 
+**Page des documents de groupe (GroupDocumentsPage.tsx)** : Cette nouvelle page permet de visualiser et gerer les documents partages au sein d'un groupe. Elle affiche les documents accessibles via les ACL de groupe, avec la possibilite de gerer les permissions d'acces. Le bouton "Gerer l'acces" n'est visible que pour le proprietaire du groupe. La page integre un systeme de mise en cache (PageCacheContext) et un mecanisme d'event polling pour detecter les changements en temps reel.
+
+**Filtre de propriete (DocumentsPage.tsx)** : Un filtre a ete ajoute a la page des documents permettant de basculer entre trois vues : "Tous les documents", "Mes documents" (dont l'utilisateur est proprietaire) et "Partages avec moi" (documents accessibles via ACL). Chaque carte de document affiche desormais un badge de role (OWNER, EDITOR, VIEWER) avec un style visuel distinct par role.
+
+**Systeme de notifications Snackbar** : Un composant reutilisable `Snackbar` a ete developpe pour remplacer les notifications ad-hoc utilisees dans les differentes pages. Ce composant affiche des messages temporaires de type toast avec un style coherent a travers toute l'application. Il est integre dans plus de 8 pages (App, AccessManagement, Auth, Collections, DocumentEditor, Documents, Groups, OCR, VersionHistory).
+
+**Event polling en temps reel (eventService.ts)** : Un service d'event polling a ete implemente pour detecter les changements sur les documents en quasi temps reel. Ce service utilise trois classes specialisees :
+- `DocumentEventService` : polling par document avec detection de revocation d'acces.
+- `GroupEventService` : polling par groupe pour detecter les ajouts/suppressions de documents.
+- `UserGroupsEventService` : polling global pour tous les groupes de l'utilisateur.
+Le mecanisme utilise un intervalle adaptatif (5s initialement, jusqu'a 30s en l'absence d'evenements) et se met en pause automatiquement lorsque l'onglet du navigateur n'est pas actif.
+
+**Mode sombre et variables CSS** : L'interface a ete refactorisee pour utiliser des variables CSS pour les couleurs, les arriere-plans, les bordures et les effets de survol. Cela permet de basculer facilement entre le mode clair et le mode sombre via un bouton dans le menu utilisateur. Les pages GroupsPage, OCRPage, SettingsPage, DocumentsPage et plusieurs autres ont ete mises a jour.
+
+**Menu utilisateur et profil (UserMenu.tsx)** : Un nouveau composant de menu utilisateur a ete ajoute, offrant un bouton de bascule pour le mode sombre et la possibilite de telecharger un avatar de profil. Le modele `UserProfile` cote backend stocke l'image d'avatar.
+
 ## 6. Tests et validation
 
 | Test | Description | Resultat |
@@ -327,24 +421,44 @@ Le champ `search_tsv` de type `SearchVectorField` est defini sur les modeles `Do
 | T8 | Recherche plein texte (deep search) | Les documents dont le contenu correspond sont retournes. |
 | T9 | Filtrage des resultats par permissions | Un utilisateur ne voit que les documents auxquels il a acces. |
 | T10 | Scan QR code via camera (jsQR) | Le QR code est detecte et le document est affiche. |
+| T11 | Event polling avec nouveaux evenements | Les notifications s'affichent en temps reel via Snackbar. |
+| T12 | Event polling avec revocation d'acces | L'evenement ACCESS_REVOKED est detecte et le polling s'arrete. |
+| T13 | Filtre de propriete "Mes documents" | Seuls les documents dont l'utilisateur est proprietaire s'affichent. |
+| T14 | Filtre de propriete "Partages avec moi" | Seuls les documents accessibles via ACL s'affichent. |
+| T15 | Page des documents de groupe | Les documents du groupe s'affichent avec les permissions correctes. |
+| T16 | Bascule mode sombre / mode clair | Les couleurs de l'interface changent correctement via les variables CSS. |
+| T17 | Mise en cache des pages | Les donnees sont restaurees depuis le cache lors du retour sur une page visitee recemment. |
 
 ## 7. Revue de sprint
 
 **Livrables du Sprint 3 :**
-- Generateur de QR codes avec stockage d'images et endpoint de resolution.
+- Generateur de QR codes avec stockage binaire en base de donnees et endpoint de resolution.
 - Modele QRLink avec gestion d'activation et d'expiration.
 - Systeme de liens de partage avec tokens uniques et roles configurables.
 - Recherche standard par titre avec filtrage multi-labels.
 - Recherche plein texte exploitant PostgreSQL tsvector avec fallback.
 - Filtrage systematique des resultats par permissions utilisateur.
 - Interfaces frontend pour la gestion des QR codes, des liens de partage et de la recherche.
+- Service d'event polling avec intervalle adaptatif et detection de revocation d'acces.
+- Page de gestion des documents de groupe avec controle d'acces par proprietaire.
+- Modele GroupOwnership pour le suivi de la propriete des groupes.
+- Filtre de propriete sur la page des documents (mes documents / partages avec moi).
+- Affichage des badges de role (OWNER, EDITOR, VIEWER) sur les cartes de documents.
+- Composant Snackbar reutilisable integre dans toute l'application.
+- Variables CSS et support du mode sombre / mode clair.
+- Mise en cache des pages via PageCacheContext (TTL de 5 minutes).
+- Profil utilisateur avec avatar (modele UserProfile).
 
 **Points positifs :**
 - Le systeme de QR codes offre un acces rapide et pratique aux documents.
 - La recherche plein texte est performante grace a l'index natif PostgreSQL.
 - Le filtrage par permissions garantit la confidentialite des donnees.
+- L'event polling offre une experience quasi temps reel sans la complexite des WebSockets.
+- Le composant Snackbar assure une experience de notification coherente sur toute l'application.
+- Les variables CSS facilitent la maintenance du theming et le support du mode sombre.
+- La mise en cache des pages ameliore la performance percue lors de la navigation.
 
 **Points d'amelioration :**
 - L'ajout de la recherche par expressions regulieres ou par proximite constituerait une evolution utile.
-- L'integration d'un systeme de notifications lors du partage ameliorerait l'experience utilisateur.
+- Le remplacement du polling par des WebSockets (Django Channels) offrirait des mises a jour instantanees avec moins de charge reseau.
 - La possibilite de generer des QR codes personnalises (logo, couleurs) serait un plus esthetique.

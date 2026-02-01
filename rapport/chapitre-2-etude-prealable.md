@@ -108,6 +108,11 @@ Les besoins fonctionnels identifies pour le systeme sont les suivants :
 | BF14 | Export de documents au format Word (.docx) | Moyenne |
 | BF15 | Journal d'audit des actions utilisateur | Haute |
 | BF16 | Gestion des groupes d'utilisateurs | Moyenne |
+| BF17 | Page de gestion des documents de groupe | Moyenne |
+| BF18 | Mise a jour en temps reel par event polling | Basse |
+| BF19 | Mode sombre et theming par variables CSS | Basse |
+| BF20 | Mise en cache des pages pour la performance (SPA Cache) | Basse |
+| BF21 | Profil utilisateur avec avatar | Basse |
 
 ## 5. Besoins non fonctionnels
 
@@ -120,6 +125,7 @@ Les besoins fonctionnels identifies pour le systeme sont les suivants :
 | BNF05 | Portabilite | Deploiement containerise avec Docker, compatible multi-environnement (developpement, production). |
 | BNF06 | Maintenabilite | Separation frontend/backend, code structure en couches, API documentee (Swagger). |
 | BNF07 | Disponibilite | Base de donnees PostgreSQL hebergee en cloud (Neon) assurant la persistance. |
+| BNF08 | Reactivite | Mecanisme de polling pour detecter les changements en quasi temps reel (intervalle adaptatif de 5s a 30s). |
 
 ## 6. Choix methodologique : Scrum
 
@@ -150,6 +156,9 @@ Le Product Backlog a ete constitue a partir des besoins fonctionnels identifies.
 | US11 | En tant qu'utilisateur, je veux generer un QR code pour acceder rapidement a un document. | 5 | Sprint 3 |
 | US12 | En tant qu'utilisateur, je veux rechercher des documents par titre et contenu. | 8 | Sprint 3 |
 | US13 | En tant qu'utilisateur, je veux une recherche avancee plein texte. | 5 | Sprint 3 |
+| US14 | En tant qu'utilisateur, je veux gerer les documents de mes groupes sur une page dediee. | 5 | Sprint 3 |
+| US15 | En tant qu'utilisateur, je veux recevoir des mises a jour en temps reel sur mes documents (event polling). | 5 | Sprint 3 |
+| US16 | En tant qu'utilisateur, je veux un mode sombre et un profil avec avatar. | 3 | Sprint 3 |
 
 ### c. Planning des sprints
 
@@ -175,4 +184,4 @@ gantt
 |--------|-------|--------------------|-------------|
 | Sprint 1 | 2 semaines | Authentification et gestion des utilisateurs | US01, US02, US03, US04 |
 | Sprint 2 | 2 semaines | OCR et editeur documentaire | US05, US06, US07, US08, US09 |
-| Sprint 3 | 2 semaines | Partage securise et recherche | US10, US11, US12, US13 |
+| Sprint 3 | 2 semaines | Partage securise et recherche | US10, US11, US12, US13, US14, US15, US16 |
