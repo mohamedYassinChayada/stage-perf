@@ -20,6 +20,7 @@ import type {
 import { Link } from 'react-router-dom';
 import { showSnackbar } from '../components/Snackbar';
 import { usePageCache } from '../contexts/PageCacheContext';
+import { userGroupsEventService } from '../services/eventService';
 import './GroupDocumentsPage.css';
 
 // SVG Icons
@@ -230,6 +231,56 @@ const GroupDocumentsPage: React.FC = () => {
       loadDocuments(selectedGroup.id);
     }
   }, [selectedGroup, loadDocuments]);
+
+  // Force refresh groups and documents (bypass cache)
+  const forceRefreshAll = useCallback(async () => {
+    try {
+      // Clear local documents cache
+      setDocumentsCacheLocal({});
+      
+      // Reload groups
+      const groups = await getGroupsWithDocuments();
+      setGroupsWithDocs(groups);
+
+      // Reload documents for selected group if any
+      if (selectedGroup) {
+        const docs = await getGroupDocuments(selectedGroup.id);
+        setDocuments(docs);
+        setDocumentsCacheLocal({ [selectedGroup.id]: docs });
+        syncCache(groups, selectedGroup.id, { [selectedGroup.id]: docs });
+      } else if (groups.length > 0) {
+        // Auto-select first group
+        setSelectedGroup(groups[0]);
+        const docs = await getGroupDocuments(groups[0].id);
+        setDocuments(docs);
+        setDocumentsCacheLocal({ [groups[0].id]: docs });
+        syncCache(groups, groups[0].id, { [groups[0].id]: docs });
+      } else {
+        syncCache(groups, null, {});
+      }
+    } catch (err) {
+      console.error('Failed to refresh group documents:', err);
+    }
+  }, [selectedGroup, syncCache]);
+
+  // Subscribe to user groups event polling for real-time updates
+  useEffect(() => {
+    // Start polling when component mounts
+    userGroupsEventService.start();
+
+    // Subscribe to change notifications
+    const unsubscribe = userGroupsEventService.subscribe(() => {
+      // When changes are detected, force refresh the data
+      forceRefreshAll();
+      showSnackbar('New documents available', 'info');
+    });
+
+    return () => {
+      // Cleanup: unsubscribe and stop polling when component unmounts
+      unsubscribe();
+      userGroupsEventService.stop();
+    };
+  }, [forceRefreshAll]);
 
   // Open ACL modal for a document
   const openACLModal = (doc: GroupDocument) => {

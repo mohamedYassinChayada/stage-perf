@@ -77,6 +77,8 @@ urlpatterns = [
 
     # Event Polling
     path('documents/<int:document_id>/events/poll/', views.document_events_poll, name='document_events_poll'),
+    path('groups/<int:group_id>/events/poll/', views.group_events_poll, name='group_events_poll'),
+    path('my-groups/events/poll/', views.user_groups_events_poll, name='user_groups_events_poll'),
 
     # Audit Logging and Version History
     path('documents/<int:document_id>/audit/', views.document_audit_log, name='document_audit_log'),

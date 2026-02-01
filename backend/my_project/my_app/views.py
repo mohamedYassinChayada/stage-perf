@@ -2511,3 +2511,147 @@ def document_events_poll(request, document_id):
         'server_time': timezone.now().isoformat(),
         'has_more': len(serializer.data) == 20
     })
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Poll for changes to a group's accessible documents",
+    manual_parameters=[
+        openapi.Parameter('since', openapi.IN_QUERY, description="ISO 8601 timestamp", type=openapi.TYPE_STRING, required=True),
+    ],
+    responses={
+        200: "Change detection result with has_changes boolean",
+        400: "Invalid or missing since parameter",
+        403: "Access denied",
+        404: "Group not found"
+    },
+    tags=['Events']
+)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def group_events_poll(request, group_id):
+    """
+    Poll for changes to a group's document list.
+    Returns whether any documents were added, removed, or had sharing changes.
+    """
+    group = get_object_or_404(Group, id=group_id)
+
+    is_member = request.user.groups.filter(id=group_id).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    since_param = request.GET.get('since')
+    if not since_param:
+        return Response({'error': 'since parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        since_dt = parse_datetime(since_param)
+        if since_dt is None:
+            raise ValueError("Invalid datetime")
+    except (ValueError, TypeError):
+        return Response({'error': 'Invalid since timestamp format. Use ISO 8601.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Detect new documents shared with this group
+    has_new_docs = ACL.objects.filter(
+        subject_type='group',
+        subject_id=str(group_id),
+        created_at__gt=since_dt
+    ).exclude(created_by=request.user).exists()
+
+    # Detect share changes or revocations on group documents
+    group_doc_ids = ACL.objects.filter(
+        subject_type='group',
+        subject_id=str(group_id)
+    ).values_list('document_id', flat=True)
+
+    has_share_changes = AuditLog.objects.filter(
+        action=Action.SHARE,
+        ts__gt=since_dt
+    ).exclude(
+        actor_user=request.user
+    ).filter(
+        Q(document_id__in=group_doc_ids) |
+        Q(context__revoked_from=f'group:{group_id}')
+    ).exists()
+
+    has_changes = has_new_docs or has_share_changes
+
+    return Response({
+        'has_changes': has_changes,
+        'server_time': timezone.now().isoformat(),
+    })
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Poll for changes across ALL of the current user's groups. Returns whether any documents were added or sharing changed.",
+    manual_parameters=[
+        openapi.Parameter('since', openapi.IN_QUERY, description="ISO 8601 timestamp", type=openapi.TYPE_STRING, required=True),
+    ],
+    responses={
+        200: "Change detection result with has_changes boolean",
+        400: "Invalid or missing since parameter",
+    },
+    tags=['Events']
+)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def user_groups_events_poll(request):
+    """
+    Poll for changes across ALL groups the user belongs to.
+    Returns whether any documents were added, removed, or had sharing changes in any user group.
+    """
+    since_param = request.GET.get('since')
+    if not since_param:
+        return Response({'error': 'since parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        since_dt = parse_datetime(since_param)
+        if since_dt is None:
+            raise ValueError("Invalid datetime")
+    except (ValueError, TypeError):
+        return Response({'error': 'Invalid since timestamp format. Use ISO 8601.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get all group IDs the user belongs to
+    user_group_ids = list(request.user.groups.values_list('id', flat=True))
+
+    if not user_group_ids:
+        return Response({
+            'has_changes': False,
+            'server_time': timezone.now().isoformat(),
+        })
+
+    # Detect new documents shared with any of user's groups
+    has_new_docs = ACL.objects.filter(
+        subject_type='group',
+        subject_id__in=[str(gid) for gid in user_group_ids],
+        created_at__gt=since_dt
+    ).exclude(created_by=request.user).exists()
+
+    # Detect share changes or revocations on group documents
+    group_doc_ids = ACL.objects.filter(
+        subject_type='group',
+        subject_id__in=[str(gid) for gid in user_group_ids]
+    ).values_list('document_id', flat=True)
+
+    # Build Q filter for revocation context matches
+    revocation_q = Q()
+    for gid in user_group_ids:
+        revocation_q |= Q(context__revoked_from=f'group:{gid}')
+
+    has_share_changes = AuditLog.objects.filter(
+        action=Action.SHARE,
+        ts__gt=since_dt
+    ).exclude(
+        actor_user=request.user
+    ).filter(
+        Q(document_id__in=group_doc_ids) | revocation_q
+    ).exists()
+
+    has_changes = has_new_docs or has_share_changes
+
+    return Response({
+        'has_changes': has_changes,
+        'server_time': timezone.now().isoformat(),
+    })
