@@ -9,6 +9,7 @@ import {
 import type { Document, Share, User, Group, ShareLink } from '../services/documentService';
 import { showSnackbar } from '../components/Snackbar';
 import Autocomplete from '../components/Autocomplete';
+import { useDocumentEvents } from '../hooks/useDocumentEvents';
 import './DetailPage.css';
 
 interface AccessForm {
@@ -59,6 +60,16 @@ const AccessManagementPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useDocumentEvents(id, {
+    onShareChanged: () => {
+      load();
+    },
+    onAccessRevoked: () => {
+      showSnackbar('Your access was revoked', 'error');
+      navigate('/documents');
+    }
+  });
 
   useEffect(() => { load(); }, [id]);
 

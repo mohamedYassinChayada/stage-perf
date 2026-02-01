@@ -146,6 +146,20 @@ def log_document_export(request, document, export_format=None):
     )
 
 
+def log_access_revoked(request, document, revoked_from=None):
+    """Log when access is revoked from a user/group."""
+    context = {
+        'document_title': document.title if document else None,
+        'revoked_from': revoked_from
+    }
+    return log_audit_event(
+        action=Action.SHARE,
+        request=request,
+        document=document,
+        context=context
+    )
+
+
 class AuditMiddleware:
     """
     Middleware to automatically log certain actions.

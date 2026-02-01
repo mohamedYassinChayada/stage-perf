@@ -30,7 +30,8 @@ from django.db.models import Q, F
 from rest_framework.decorators import authentication_classes, permission_classes
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .audit import log_audit_event, log_document_view, log_document_edit, log_document_share, log_document_export
+from django.utils.dateparse import parse_datetime
+from .audit import log_audit_event, log_document_view, log_document_edit, log_document_share, log_document_export, log_access_revoked
 from django.contrib.postgres.search import SearchQuery, SearchRank
 import re
 import numpy as np
@@ -1201,6 +1202,7 @@ def share_update_delete(request, share_id: str):
         return Response({'error': 'forbidden'}, status=403)
 
     if request.method == 'DELETE':
+        log_access_revoked(request, document, revoked_from=f"{acl.subject_type}:{acl.subject_id}")
         acl.delete()
         return Response(status=204)
 
@@ -2434,9 +2436,10 @@ def document_acl_detail(request, document_id, acl_id):
         return Response({'error': 'Access denied. SHARE permission required.'}, status=status.HTTP_403_FORBIDDEN)
     
     if request.method == 'DELETE':
+        log_access_revoked(request, document, revoked_from=f"{acl.subject_type}:{acl.subject_id}")
         acl.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
     elif request.method == 'PUT':
         role = request.data.get('role')
         expires_at = request.data.get('expires_at')
@@ -2451,3 +2454,60 @@ def document_acl_detail(request, document_id, acl_id):
         
         acl.save()
         return Response(ACLSerializer(acl).data)
+
+
+# === EVENT POLLING ENDPOINT ===
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Poll for document events since a timestamp",
+    manual_parameters=[
+        openapi.Parameter('since', openapi.IN_QUERY, description="ISO 8601 timestamp", type=openapi.TYPE_STRING, required=True),
+    ],
+    responses={
+        200: AuditLogSerializer(many=True),
+        400: "Invalid or missing since parameter",
+        403: "Access denied",
+        404: "Document not found"
+    },
+    tags=['Events']
+)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def document_events_poll(request, document_id):
+    """
+    Poll for new events on a document.
+    Returns events since the given timestamp, excluding the current user's own actions.
+    """
+    document = get_object_or_404(Document, id=document_id)
+
+    permission = DocumentAccessPermission()
+    if not permission.has_object_permission(request, None, document):
+        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    since_param = request.GET.get('since')
+    if not since_param:
+        return Response({'error': 'since parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        since_dt = parse_datetime(since_param)
+        if since_dt is None:
+            raise ValueError("Invalid datetime")
+    except (ValueError, TypeError):
+        return Response({'error': 'Invalid since timestamp format. Use ISO 8601.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    events = AuditLog.objects.filter(
+        document=document,
+        ts__gt=since_dt
+    ).exclude(
+        actor_user=request.user
+    ).select_related('actor_user').order_by('ts')[:20]
+
+    serializer = AuditLogSerializer(events, many=True)
+
+    return Response({
+        'events': serializer.data,
+        'server_time': timezone.now().isoformat(),
+        'has_more': len(serializer.data) == 20
+    })

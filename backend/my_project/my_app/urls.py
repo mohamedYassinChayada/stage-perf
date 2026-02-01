@@ -75,6 +75,9 @@ urlpatterns = [
     path('share-links/<uuid:share_link_id>/revoke/', views.share_link_revoke, name='share_link_revoke'),
     path('share-links/<str:token>/', views.share_link_access, name='share_link_access'),
 
+    # Event Polling
+    path('documents/<int:document_id>/events/poll/', views.document_events_poll, name='document_events_poll'),
+
     # Audit Logging and Version History
     path('documents/<int:document_id>/audit/', views.document_audit_log, name='document_audit_log'),
     path('documents/<int:document_id>/versions/', views.document_version_history, name='document_version_history'),

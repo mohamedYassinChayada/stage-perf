@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getDocument, updateDocumentHtml } from '../services/documentService';
 import type { Document } from '../services/documentService';
 import { showSnackbar } from '../components/Snackbar';
+import { useDocumentEvents } from '../hooks/useDocumentEvents';
 
 const DocumentEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +14,17 @@ const DocumentEditorPage: React.FC = () => {
   const [doc, setDoc] = useState<Document | null>(null);
   const [saving, setSaving] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [hasExternalUpdate, setHasExternalUpdate] = useState(false);
+
+  useDocumentEvents(id, {
+    showNotifications: true,
+    onDocumentUpdated: () => {
+      setHasExternalUpdate(true);
+    },
+    onAccessRevoked: () => {
+      navigate('/documents');
+    }
+  });
 
   useEffect(() => {
     (async () => {
@@ -191,9 +203,32 @@ const DocumentEditorPage: React.FC = () => {
         )}
       </div>
       
-      <WordLikeEditor 
-        ref={editorRef} 
-        initialTitle={doc.title} 
+      {hasExternalUpdate && (
+        <div style={{
+          padding: '10px 16px',
+          marginBottom: 12,
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: 6,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: 14,
+          color: '#856404'
+        }}>
+          <span>This document was updated by another user.</span>
+          <button
+            className="btn btn-primary"
+            style={{ padding: '4px 14px', fontSize: 13 }}
+            onClick={() => { window.location.reload(); }}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+      <WordLikeEditor
+        ref={editorRef}
+        initialTitle={doc.title}
         readOnly={isReadOnly}
         qrCodeUrl={doc.qr_code_url}
       />
