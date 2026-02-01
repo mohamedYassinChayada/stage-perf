@@ -472,13 +472,15 @@ const GroupDocumentsPage: React.FC = () => {
                         <span className={getRoleBadgeClass(doc.group_role || 'VIEWER')}>
                           {doc.group_role || 'VIEWER'}
                         </span>
-                        <button
-                          className="manage-access-btn"
-                          onClick={() => openACLModal(doc)}
-                          title="Manage Access"
-                        >
-                          <ShieldIcon /> Manage Access
-                        </button>
+                        {selectedGroup?.is_owner && (
+                          <button
+                            className="manage-access-btn"
+                            onClick={() => openACLModal(doc)}
+                            title="Manage Access"
+                          >
+                            <ShieldIcon /> Manage Access
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
