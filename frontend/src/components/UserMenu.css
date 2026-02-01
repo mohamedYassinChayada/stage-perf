@@ -9,22 +9,22 @@
   gap: 8px;
   padding: 4px 8px;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border: 1px solid var(--nav-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  color: white;
-  transition: background 0.15s ease;
+  color: var(--nav-text);
+  transition: background var(--transition-fast);
 }
 
 .user-menu-trigger:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--nav-link-hover-bg);
 }
 
 .user-menu-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent-gradient);
   color: white;
   display: flex;
   align-items: center;
@@ -51,7 +51,7 @@
 }
 
 .user-menu-chevron {
-  transition: transform 0.15s ease;
+  transition: transform var(--transition-fast);
 }
 
 .user-menu-chevron.open {
@@ -63,10 +63,10 @@
   top: calc(100% + 6px);
   right: 0;
   width: 240px;
-  background: var(--card-bg, white);
-  border: 1px solid var(--border-color, #dee2e6);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   z-index: 1001;
   overflow: hidden;
   animation: userMenuFadeIn 0.15s ease;
@@ -82,7 +82,7 @@
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color, #e9ecef);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .user-menu-header-info {
@@ -93,7 +93,7 @@
 .user-menu-header-name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary, #212529);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -101,7 +101,7 @@
 
 .user-menu-header-email {
   font-size: 11px;
-  color: var(--text-secondary, #6c757d);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -117,32 +117,32 @@
   background: transparent;
   cursor: pointer;
   font-size: 13px;
-  color: var(--text-primary, #495057);
+  color: var(--text-primary);
   text-decoration: none;
-  transition: background 0.1s ease;
+  transition: background var(--transition-fast);
 }
 
 .user-menu-item:hover {
-  background: var(--hover-bg, #f8f9fa);
+  background: var(--hover-bg);
 }
 
 .user-menu-item svg {
   flex-shrink: 0;
-  color: var(--text-secondary, #868e96);
+  color: var(--text-muted);
 }
 
 .user-menu-divider {
   height: 1px;
-  background: var(--border-color, #e9ecef);
+  background: var(--border-color);
   margin: 4px 0;
 }
 
 .user-menu-item--danger {
-  color: #dc3545;
+  color: var(--danger);
 }
 
 .user-menu-item--danger svg {
-  color: #dc3545;
+  color: var(--danger);
 }
 
 .user-menu-toggle {
@@ -153,14 +153,14 @@
   position: relative;
   width: 36px;
   height: 20px;
-  background: #dee2e6;
+  background: var(--border-color);
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background var(--transition-base);
 }
 
 .dark-mode-switch.active {
-  background: #667eea;
+  background: var(--accent-primary);
 }
 
 .dark-mode-switch::after {
@@ -172,7 +172,7 @@
   height: 16px;
   background: white;
   border-radius: 50%;
-  transition: transform 0.2s ease;
+  transition: transform var(--transition-base);
 }
 
 .dark-mode-switch.active::after {

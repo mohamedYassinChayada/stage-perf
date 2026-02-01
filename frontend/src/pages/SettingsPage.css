@@ -2,39 +2,38 @@
   max-width: 700px;
   margin: 0 auto;
   padding: 24px 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 .settings-page h2 {
   margin: 0 0 24px 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--text-primary, #1a202c);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
 .settings-card {
-  background: var(--card-bg, white);
-  border: 1px solid var(--border-color, #dee2e6);
-  border-radius: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 1px 4px var(--shadow-color, rgba(0, 0, 0, 0.06));
+  box-shadow: var(--shadow-sm);
   margin-bottom: 20px;
 }
 
 .settings-card-header {
   padding: 14px 20px;
-  background: var(--bg-header, linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%));
-  border-bottom: 1px solid var(--border-color, #dee2e6);
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .settings-card-header h3 {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary, #343a40);
+  color: var(--text-primary);
 }
 
 .settings-card-body {
@@ -53,7 +52,7 @@
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted, #868e96);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.3px;
   margin-bottom: 6px;
@@ -61,25 +60,25 @@
 
 .settings-field input {
   width: 100%;
-  padding: 9px 12px;
-  border: 1px solid var(--border-color, #dee2e6);
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   font-size: 14px;
-  color: var(--text-primary, #495057);
-  background: var(--bg-input, white);
+  color: var(--text-primary);
+  background: var(--bg-input);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   box-sizing: border-box;
 }
 
 .settings-field input:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-primary-glow);
 }
 
 .settings-field input[disabled] {
-  background: var(--table-header-bg, #f8f9fa);
-  color: var(--text-secondary, #6c757d);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
@@ -94,23 +93,23 @@
   align-items: center;
   gap: 6px;
   padding: 9px 18px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .settings-btn--primary {
-  background: #667eea;
+  background: var(--accent-primary);
   color: white;
-  border-color: #667eea;
+  border-color: var(--accent-primary);
 }
 
 .settings-btn--primary:hover {
-  background: #5a6fd6;
-  border-color: #5a6fd6;
+  background: var(--accent-primary-hover);
+  border-color: var(--accent-primary-hover);
 }
 
 .settings-btn--primary:disabled {
@@ -128,7 +127,7 @@
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent-gradient);
   color: white;
   display: flex;
   align-items: center;
@@ -152,7 +151,7 @@
 .settings-avatar-controls p {
   margin: 0 0 8px;
   font-size: 12px;
-  color: var(--text-secondary, #6c757d);
+  color: var(--text-secondary);
 }
 
 .settings-file-input {
@@ -167,4 +166,5 @@
   padding: 0;
   background: transparent;
   width: auto;
+  color: var(--text-secondary);
 }

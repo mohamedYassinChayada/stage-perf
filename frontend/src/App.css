@@ -1,103 +1,229 @@
+/* ============================================
+   DESIGN TOKEN SYSTEM - Light Mode (Default)
+   ============================================ */
 :root {
-  --bg-primary: #f5f5f5;
-  --bg-card: white;
-  --bg-input: white;
-  --bg-header: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  --text-primary: #212529;
-  --text-secondary: #6c757d;
-  --text-muted: #868e96;
-  --border-color: #dee2e6;
-  --border-light: #f1f3f5;
-  --shadow-color: rgba(0, 0, 0, 0.06);
-  --hover-bg: #f8f9fa;
-  --card-bg: white;
-  --nav-bg: #2b579a;
-  --table-header-bg: #f8f9fa;
-  --table-hover-bg: #f8f9fa;
+  /* --- Background Colors --- */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-header: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --bg-overlay: rgba(15, 23, 42, 0.5);
+
+  /* --- Text Colors --- */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* --- Border Colors --- */
+  --border-color: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-focus: #6366f1;
+
+  /* --- Accent / Brand Colors --- */
+  --accent-primary: #6366f1;
+  --accent-primary-hover: #4f46e5;
+  --accent-primary-light: #eef2ff;
+  --accent-primary-glow: rgba(99, 102, 241, 0.15);
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+
+  /* --- Semantic Colors --- */
+  --success: #10b981;
+  --success-hover: #059669;
+  --success-light: #ecfdf5;
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-light: #fef2f2;
+  --warning: #f59e0b;
+  --warning-hover: #d97706;
+  --warning-light: #fffbeb;
+  --info: #3b82f6;
+  --info-hover: #2563eb;
+  --info-light: #eff6ff;
+
+  /* --- Shadows --- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
+
+  /* --- Radius --- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  /* --- Hover & Interactive --- */
+  --hover-bg: #f1f5f9;
+  --card-bg: #ffffff;
+  --nav-bg: #0f172a;
+  --nav-text: #94a3b8;
+  --nav-text-hover: #f1f5f9;
+  --nav-active-bg: rgba(99, 102, 241, 0.15);
+  --nav-active-text: #a5b4fc;
+  --table-header-bg: #f8fafc;
+  --table-hover-bg: #f8fafc;
+
+  /* --- Transitions --- */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
 }
 
+/* ============================================
+   DESIGN TOKEN SYSTEM - Dark Mode
+   ============================================ */
 :root.dark-mode {
-  --bg-primary: #1a1a2e;
-  --bg-card: #16213e;
-  --bg-input: #1a1a2e;
-  --bg-header: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0b0;
-  --text-muted: #808090;
-  --border-color: #2a2a4a;
-  --border-light: #222244;
-  --shadow-color: rgba(0, 0, 0, 0.3);
-  --hover-bg: #1a1a3e;
-  --card-bg: #16213e;
-  --nav-bg: #0f3460;
-  --table-header-bg: #1a1a2e;
-  --table-hover-bg: #1a1a3e;
+  /* --- Background Colors --- */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --bg-input: #1e293b;
+  --bg-elevated: #334155;
+  --bg-header: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* --- Text Colors --- */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #0f172a;
+
+  /* --- Border Colors --- */
+  --border-color: #334155;
+  --border-light: #1e293b;
+  --border-focus: #818cf8;
+
+  /* --- Accent / Brand Colors (slightly lighter for dark bg) --- */
+  --accent-primary: #818cf8;
+  --accent-primary-hover: #6366f1;
+  --accent-primary-light: rgba(99, 102, 241, 0.15);
+  --accent-primary-glow: rgba(129, 140, 248, 0.2);
+  --accent-gradient: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+
+  /* --- Semantic Colors (lighter tones for dark bg) --- */
+  --success: #34d399;
+  --success-hover: #10b981;
+  --success-light: rgba(16, 185, 129, 0.15);
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --danger-light: rgba(239, 68, 68, 0.15);
+  --warning: #fbbf24;
+  --warning-hover: #f59e0b;
+  --warning-light: rgba(245, 158, 11, 0.15);
+  --info: #60a5fa;
+  --info-hover: #3b82f6;
+  --info-light: rgba(59, 130, 246, 0.15);
+
+  /* --- Shadows (stronger for dark) --- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+
+  /* --- Hover & Interactive --- */
+  --hover-bg: #334155;
+  --card-bg: #1e293b;
+  --nav-bg: #020617;
+  --nav-text: #64748b;
+  --nav-text-hover: #e2e8f0;
+  --nav-active-bg: rgba(129, 140, 248, 0.15);
+  --nav-active-text: #a5b4fc;
+  --table-header-bg: #1e293b;
+  --table-hover-bg: rgba(99, 102, 241, 0.05);
 }
 
+/* ============================================
+   GLOBAL STYLES
+   ============================================ */
 .App {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-primary);
+  transition: background-color var(--transition-slow);
 }
 
-/* Navigation Styles */
+body {
+  background-color: var(--bg-primary);
+  background-image: none;
+}
+
+/* ============================================
+   NAVIGATION
+   ============================================ */
 .app-navigation {
   background: var(--nav-bg);
-  color: white;
-  padding: 0 20px;
+  color: var(--text-inverse);
+  padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
   position: sticky;
   top: 0;
   z-index: 1000;
+  height: 56px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .nav-brand h2 {
   margin: 0;
-  padding: 15px 0;
-  color: white;
-  font-weight: 600;
+  color: var(--text-inverse);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.3px;
 }
 
 .nav-links {
   display: flex;
-  gap: 20px;
+  gap: 4px;
+  align-items: center;
 }
 
 .nav-link {
-  color: #bdc3c7;
+  color: var(--nav-text);
   text-decoration: none;
-  padding: 15px 20px;
-  border-radius: 6px;
-  transition: all 0.3s ease;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
   font-weight: 500;
+  font-size: 0.875rem;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  position: relative;
 }
 
 .nav-link:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--nav-text-hover);
+  transform: none;
 }
 
 .nav-link.active {
-  background: #3498db;
-  color: white;
+  background: var(--nav-active-bg);
+  color: var(--nav-active-text);
+  font-weight: 600;
 }
 
-/* App Content */
+/* ============================================
+   APP CONTENT
+   ============================================ */
 .app-content {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-/* Home Page Styles */
+/* ============================================
+   HOME PAGE / EDITOR PAGE
+   ============================================ */
 .home-page {
   flex: 1;
   display: flex;
@@ -105,21 +231,22 @@
 }
 
 .page-header {
-  background: linear-gradient(135deg, #2b579a 0%, #1e3d72 100%);
-  color: white;
-  padding: 40px 20px;
+  background: var(--accent-gradient);
+  color: var(--text-inverse);
+  padding: 32px 24px;
   text-align: center;
 }
 
 .page-header h1 {
-  margin: 0 0 10px 0;
-  font-size: 2.5rem;
+  margin: 0 0 8px 0;
+  font-size: 2rem;
   font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 .page-header p {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   opacity: 0.9;
 }
 
@@ -132,58 +259,79 @@
   justify-content: center;
 }
 
+/* ============================================
+   RESPONSIVE
+   ============================================ */
 @media (max-width: 768px) {
   .app-navigation {
     flex-direction: column;
-    padding: 10px;
+    padding: 10px 16px;
+    height: auto;
   }
-  
+
   .nav-brand {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
-  
+
   .nav-links {
     width: 100%;
     justify-content: center;
+    flex-wrap: wrap;
+    gap: 2px;
   }
-  
+
   .nav-link {
-    padding: 10px 15px;
-    font-size: 0.9rem;
+    padding: 6px 10px;
+    font-size: 0.8rem;
   }
-  
+
   .page-header h1 {
-    font-size: 2rem;
+    font-size: 1.75rem;
   }
-  
+
   .page-header p {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
-  
+
   .editor-container {
     padding: 10px;
   }
 }
 
-/* Add a subtle pattern to the background for a more Microsoft Word-like feel */
-body {
-  background-image: linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
-  background-size: 20px 20px;
-  background-position: -1px -1px;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Spinner animation for save button */
+/* ============================================
+   ANIMATIONS
+   ============================================ */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
