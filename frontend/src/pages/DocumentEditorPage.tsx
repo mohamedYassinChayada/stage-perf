@@ -156,18 +156,25 @@ const DocumentEditorPage: React.FC = () => {
         )}
       </div>
       
-      <div style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
         <button 
           className="btn btn-primary" 
-          onClick={onSave} 
-          disabled={saving || isReadOnly}
-          title={isReadOnly ? 'You only have view access to this document' : 'Save document'}
+          style={{ padding: '10px 24px', fontSize: '15px', fontWeight: 600 }}
+          onClick={() => navigate('/documents')}
         >
-          {saving ? 'Saving...' : 'Save'}
+          ← Back
         </button>
-        <button className="btn btn-secondary" style={{ marginLeft: 8 }} onClick={() => navigate('/documents')}>
-          Back
-        </button>
+        {!isReadOnly && (
+          <button 
+            className="btn btn-success" 
+            onClick={onSave} 
+            disabled={saving}
+            title="Save document"
+            style={{ padding: '10px 20px' }}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        )}
         {isReadOnly && (
           <div style={{ 
             marginTop: 8, 

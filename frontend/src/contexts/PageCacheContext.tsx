@@ -74,6 +74,9 @@ interface PageCacheContextValue {
   getOCRCache: () => OCRPageCache | null;
   setOCRCache: (cache: OCRPageCache) => void;
   clearOCRCache: () => void;
+
+  // Clear all
+  clearAllCaches: () => void;
 }
 
 const PageCacheContext = createContext<PageCacheContextValue | null>(null);
@@ -164,12 +167,21 @@ export const PageCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     ocrCacheRef.current = null;
   }, []);
 
+  const clearAllCaches = useCallback(() => {
+    documentsCacheRef.current = null;
+    groupsCacheRef.current = null;
+    groupDocumentsCacheRef.current = null;
+    collectionsCacheRef.current = null;
+    ocrCacheRef.current = null;
+  }, []);
+
   const value: PageCacheContextValue = {
     getDocumentsCache, setDocumentsCache, clearDocumentsCache,
     getGroupsCache, setGroupsCache, clearGroupsCache,
     getGroupDocumentsCache, setGroupDocumentsCache, clearGroupDocumentsCache,
     getCollectionsCache, setCollectionsCache, clearCollectionsCache,
     getOCRCache, setOCRCache, clearOCRCache,
+    clearAllCaches,
   };
 
   return (

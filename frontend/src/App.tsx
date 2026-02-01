@@ -19,7 +19,7 @@ import AuditLogPage from './pages/AuditLogPage';
 import VersionHistoryPage from './pages/VersionHistoryPage';
 import SettingsPage from './pages/SettingsPage';
 import SnackbarContainer from './components/Snackbar';
-import { PageCacheProvider } from './contexts/PageCacheContext';
+import { PageCacheProvider, usePageCache } from './contexts/PageCacheContext';
 
 interface UserInfo {
   authenticated: boolean;
@@ -32,6 +32,7 @@ interface UserInfo {
 const Navigation: React.FC = () => {
   const location = useLocation();
   const [user, setUser] = React.useState<UserInfo | null>(null);
+  const { clearAllCaches } = usePageCache();
 
   React.useEffect(() => {
     (async () => {
@@ -49,6 +50,7 @@ const Navigation: React.FC = () => {
     try {
       await logout();
     } finally {
+      clearAllCaches();
       localStorage.removeItem('token');
       setUser(null);
       window.location.href = '/auth';

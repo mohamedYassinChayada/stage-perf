@@ -252,6 +252,39 @@
   background: #fee2e2;
 }
 
+.collections-tree-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 5px;
+  color: #adb5bd;
+  border-radius: 4px;
+  transition: all 0.15s;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collections-tree-node:hover .collections-tree-edit {
+  opacity: 1;
+}
+
+.collections-tree-edit:hover {
+  color: #2b579a;
+  background: #e8f0fe;
+}
+
+.collections-tree-rename-input {
+  flex-grow: 1;
+  padding: 3px 8px;
+  border: 1.5px solid #2b579a;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(43, 87, 154, 0.1);
+}
+
 /* Create Collection */
 .collections-create-section {
   padding: 14px 16px;

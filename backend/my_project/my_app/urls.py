@@ -49,6 +49,7 @@ urlpatterns = [
     path('collections/', views.collections_list, name='collections_list'),
     path('collections/create/', views.collection_create, name='collection_create'),
     path('collections/<uuid:collection_id>/', views.collection_detail, name='collection_detail'),
+    path('collections/<uuid:collection_id>/update/', views.collection_update, name='collection_update'),
     path('collections/<uuid:collection_id>/delete/', views.collection_delete, name='collection_delete'),
     path('documents/<int:pk>/collections/', views.document_set_collections, name='document_set_collections'),
 

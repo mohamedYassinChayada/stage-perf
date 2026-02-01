@@ -450,6 +450,16 @@ export const createCollection = async (name: string, parent_id: number | null = 
   return res.json();
 };
 
+export const updateCollection = async (collectionId: number, name: string): Promise<Collection> => {
+  const res = await fetch(`${API_BASE_URL}/collections/${collectionId}/update/`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error('Failed to update collection');
+  return res.json();
+};
+
 export const setDocumentCollections = async (documentId: number, collectionIds: number[]): Promise<unknown> => {
   const res = await fetch(`${API_BASE_URL}/documents/${documentId}/collections/`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ collection_ids: collectionIds }) });
   if (!res.ok) throw new Error('Failed to set collections');

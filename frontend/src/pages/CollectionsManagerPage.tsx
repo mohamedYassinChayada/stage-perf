@@ -4,6 +4,7 @@ import {
   listCollections,
   createCollection,
   deleteCollection,
+  updateCollection,
   getCollectionDetail,
   setDocumentCollections,
   getAllDocuments,
@@ -42,6 +43,13 @@ const TrashIcon: React.FC<{ size?: number }> = ({ size = 16 }) => (
   </svg>
 );
 
+const PencilIcon: React.FC<{ size?: number }> = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
 const FolderIcon: React.FC<{ open?: boolean }> = ({ open }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill={open ? '#2b579a' : '#6c757d'} stroke="none">
     {open ? (
@@ -58,6 +66,7 @@ interface CollectionNodeProps {
   onSelect: (id: number) => void;
   onDropDocument: (docId: number, collectionId: number) => void;
   onDelete: (node: CollectionNode) => void;
+  onRename: (nodeId: number, newName: string) => void;
   collapsedNodes: Set<number>;
   onToggleCollapse: (id: number) => void;
   level?: number;
@@ -69,6 +78,7 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
   onSelect,
   onDropDocument,
   onDelete,
+  onRename,
   collapsedNodes,
   onToggleCollapse,
   level = 0
@@ -76,6 +86,8 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
   const [details, setDetails] = useState<CollectionDetail | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(node.name);
   const hasChildren = node.children && node.children.length > 0;
   const isCollapsed = collapsedNodes.has(node.id);
   const isSelected = selectedId === node.id;
@@ -120,6 +132,33 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
     onSelect(node.id);
   };
 
+  const handleStartEdit = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    setEditName(node.name);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = (): void => {
+    setIsEditing(false);
+    setEditName(node.name);
+  };
+
+  const handleConfirmEdit = (): void => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== node.name) {
+      onRename(node.id, trimmed);
+    }
+    setIsEditing(false);
+  };
+
+  const handleEditKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Enter') {
+      handleConfirmEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
   return (
     <div style={{ marginLeft: level * 18 }}>
       <div
@@ -140,18 +179,37 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
           <span className="collections-tree-toggle-spacer" />
         )}
 
-        <button className="collections-tree-name" onClick={handleSelect}>
-          <FolderIcon open={isSelected || !isCollapsed} />
-          <span>{node.name}</span>
-          {isSelected && details && (
-            <span className="collections-tree-badge">
-              {details.document_count} docs
-              {details.subcollection_count > 0 && `, ${details.subcollection_count} subs`}
-            </span>
-          )}
-          {loadingDetails && isSelected && (
-            <span className="collections-tree-loading-dot" />
-          )}
+        {isEditing ? (
+          <input
+            className="collections-tree-rename-input"
+            value={editName}
+            onChange={e => setEditName(e.target.value)}
+            onKeyDown={handleEditKeyDown}
+            onBlur={handleConfirmEdit}
+            autoFocus
+          />
+        ) : (
+          <button className="collections-tree-name" onClick={handleSelect} onDoubleClick={handleStartEdit}>
+            <FolderIcon open={isSelected || !isCollapsed} />
+            <span>{node.name}</span>
+            {isSelected && details && (
+              <span className="collections-tree-badge">
+                {details.document_count} docs
+                {details.subcollection_count > 0 && `, ${details.subcollection_count} subs`}
+              </span>
+            )}
+            {loadingDetails && isSelected && (
+              <span className="collections-tree-loading-dot" />
+            )}
+          </button>
+        )}
+
+        <button
+          className="collections-tree-edit"
+          onClick={handleStartEdit}
+          title={`Rename "${node.name}"`}
+        >
+          <PencilIcon size={14} />
         </button>
 
         <button
@@ -173,6 +231,7 @@ const CollectionNodeComponent: React.FC<CollectionNodeProps> = ({
               onSelect={onSelect}
               onDropDocument={onDropDocument}
               onDelete={onDelete}
+              onRename={onRename}
               collapsedNodes={collapsedNodes}
               onToggleCollapse={onToggleCollapse}
               level={level + 1}
@@ -346,6 +405,19 @@ const CollectionsManagerPage: React.FC = () => {
     setCollapsedNodes(newCollapsed);
   };
 
+  const handleRenameCollection = async (nodeId: number, newName: string): Promise<void> => {
+    try {
+      setSaving(true);
+      await updateCollection(nodeId, newName);
+      showSnackbar(`Collection renamed to "${newName}"`, 'success');
+      await loadAll();
+    } catch (e) {
+      showSnackbar((e as Error).message || 'Failed to rename collection', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDeleteCollection = (node: CollectionNode): void => {
     const countDescendants = (n: CollectionNode): number => {
       let count = 1;
@@ -485,6 +557,7 @@ const CollectionsManagerPage: React.FC = () => {
                     onSelect={setSelectedCollectionId}
                     onDropDocument={handleDropDocument}
                     onDelete={handleDeleteCollection}
+                    onRename={handleRenameCollection}
                     collapsedNodes={collapsedNodes}
                     onToggleCollapse={handleToggleCollapse}
                   />

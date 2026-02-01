@@ -879,8 +879,8 @@ const DocumentsPage: React.FC = () => {
 
                 <div className="document-actions">
                   <div className="document-actions-primary">
-                    <Link to={`/documents/${document.id}`} className="btn btn-primary" title="Open in Editor">
-                      Edit Content
+                    <Link to={`/documents/${document.id}`} className="btn btn-primary" title="Open Document">
+                      Open
                     </Link>
                     <button onClick={() => openQRCode(document.id)} className="btn btn-info" title="View QR Code">
                       QR Code

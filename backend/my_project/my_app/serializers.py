@@ -194,8 +194,11 @@ class DocumentSerializer(serializers.ModelSerializer):
         return list(items)
 
     def get_collections(self, obj):
-        items = Collection.objects.filter(documentcollection__document=obj).values('id', 'name', 'parent_id')
-        return list(items)
+        request = self.context.get('request')
+        qs = Collection.objects.filter(documentcollection__document=obj)
+        if request and request.user and request.user.is_authenticated:
+            qs = qs.filter(owner=request.user)
+        return list(qs.values('id', 'name', 'parent_id'))
 
     def get_user_role(self, obj):
         """Get the current user's role for this document."""
@@ -269,8 +272,11 @@ class DocumentListSerializer(serializers.ModelSerializer):
         return list(items)
 
     def get_collections(self, obj):
-        items = Collection.objects.filter(documentcollection__document=obj).values('id', 'name', 'parent_id')
-        return list(items)
+        request = self.context.get('request')
+        qs = Collection.objects.filter(documentcollection__document=obj)
+        if request and request.user and request.user.is_authenticated:
+            qs = qs.filter(owner=request.user)
+        return list(qs.values('id', 'name', 'parent_id'))
 
 
 class DocumentCreateSerializer(serializers.ModelSerializer):

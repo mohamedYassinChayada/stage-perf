@@ -1257,19 +1257,27 @@ def document_set_labels(request, pk: int):
 # --- Collections ---
 @swagger_auto_schema(method='get', tags=['Collections'])
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def collections_list(request):
-    items = Collection.objects.all().values('id', 'name', 'parent_id')
+    items = Collection.objects.filter(owner=request.user).values('id', 'name', 'parent_id')
     return Response(list(items), status=200)
 
 
 @swagger_auto_schema(method='post', tags=['Collections'])
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def collection_create(request):
     name = request.data.get('name')
     parent_id = request.data.get('parent_id')
     if not name:
         return Response({'error': 'name required'}, status=400)
-    coll = Collection.objects.create(name=name, parent_id=parent_id or None, owner=request.user if request.user.is_authenticated else None)
+    if parent_id:
+        parent = Collection.objects.filter(id=parent_id, owner=request.user).first()
+        if not parent:
+            return Response({'error': 'Parent collection not found or not owned by you'}, status=403)
+    coll = Collection.objects.create(name=name, parent_id=parent_id or None, owner=request.user)
     return Response({'id': str(coll.id), 'name': coll.name, 'parent_id': coll.parent_id}, status=201)
 
 
@@ -1286,6 +1294,7 @@ def collection_create(request):
     tags=['Collections']
 )
 @api_view(['DELETE'])
+@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def collection_delete(request, collection_id):
     """Delete a collection and all its sub-collections."""
@@ -1350,6 +1359,47 @@ def collection_delete(request, collection_id):
 
 
 @swagger_auto_schema(
+    method='put',
+    operation_description="Rename a collection. Only the owner can rename.",
+    operation_summary="Update Collection",
+    responses={
+        200: "Collection updated successfully",
+        403: "Permission denied - only collection owner can update",
+        404: "Collection not found",
+        400: "Bad request"
+    },
+    tags=['Collections']
+)
+@api_view(['PUT'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def collection_update(request, collection_id):
+    """Update (rename) a collection."""
+    try:
+        collection = get_object_or_404(Collection, id=collection_id)
+
+        if collection.owner != request.user and not (request.user.is_staff or request.user.is_superuser):
+            return Response({'error': 'Only the collection owner can update this collection'}, status=status.HTTP_403_FORBIDDEN)
+
+        name = request.data.get('name')
+        if not name or not name.strip():
+            return Response({'error': 'name is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        collection.name = name.strip()
+        collection.save()
+
+        return Response({
+            'id': str(collection.id),
+            'name': collection.name,
+            'parent_id': str(collection.parent_id) if collection.parent_id else None,
+        })
+
+    except Exception as e:
+        logger.error(f"Error updating collection {collection_id}: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
     method='get',
     operation_description="Get detailed information about a collection including document count",
     operation_summary="Get Collection Details",
@@ -1357,11 +1407,16 @@ def collection_delete(request, collection_id):
     tags=['Collections']
 )
 @api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def collection_detail(request, collection_id):
     """Get detailed collection information."""
     try:
         collection = get_object_or_404(Collection, id=collection_id)
-        
+
+        if collection.owner != request.user and not (request.user.is_staff or request.user.is_superuser):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
         # Count documents in this collection
         document_count = DocumentCollection.objects.filter(collection=collection).count()
         
@@ -1390,10 +1445,17 @@ def collection_detail(request, collection_id):
 
 @swagger_auto_schema(method='post', tags=['Collections'])
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def document_set_collections(request, pk: int):
     doc = get_object_or_404(Document, pk=pk)
     ids = request.data.get('collection_ids') or []
     try:
+        # Validate all collection IDs belong to the requesting user
+        if ids:
+            owned_count = Collection.objects.filter(id__in=ids, owner=request.user).count()
+            if owned_count != len(ids):
+                return Response({'error': 'One or more collections do not belong to you'}, status=status.HTTP_403_FORBIDDEN)
         DocumentCollection.objects.filter(document=doc).delete()
         for cid in ids:
             DocumentCollection.objects.create(document=doc, collection_id=cid)

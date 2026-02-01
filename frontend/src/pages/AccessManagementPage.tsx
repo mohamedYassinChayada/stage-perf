@@ -177,6 +177,34 @@ const AccessManagementPage: React.FC = () => {
     );
   }
 
+  // Check if user has permission to manage access (only OWNER can manage)
+  const canManageAccess = doc?.user_role === 'OWNER';
+
+  if (!canManageAccess) {
+    return (
+      <div className="detail-page">
+        <div className="detail-error" style={{ marginTop: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+          <p className="detail-error-title">Access Denied</p>
+          <p className="detail-error-message">
+            You don't have permission to manage access rights for this document.
+            Only the document owner can modify sharing settings.
+          </p>
+          <p style={{ fontSize: 14, color: '#6c757d', marginTop: 12 }}>
+            Your current role: <strong>{doc?.user_role || 'Unknown'}</strong>
+          </p>
+          <button 
+            className="detail-btn detail-btn--primary" 
+            onClick={() => navigate('/documents')}
+            style={{ marginTop: 20 }}
+          >
+            Back to Documents
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="detail-page">
       <div className="detail-page-header">
