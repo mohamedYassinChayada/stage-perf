@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import {
   getDocumentsPaginated,
@@ -54,6 +54,9 @@ const DocumentsPage: React.FC = () => {
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchResults, setSearchResults] = useState<Document[]>([]);
+
+  // Ownership filter: 'all' | 'owned' | 'shared'
+  const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'shared'>('all');
 
   // QR Camera Scanner state
   const [showCameraScanner, setShowCameraScanner] = useState(false);
@@ -159,8 +162,23 @@ const DocumentsPage: React.FC = () => {
     }
   }, [pageCache, currentPage, totalCount, totalPages, labels, collections, syncCacheToContext]);
 
-  // Current page documents
-  const currentDocuments = isSearchMode ? searchResults : (pageCache.get(currentPage) || []);
+  // Current page documents with ownership filter applied
+  const currentDocuments = useMemo(() => {
+    const docs = isSearchMode ? searchResults : (pageCache.get(currentPage) || []);
+    
+    if (ownershipFilter === 'all') {
+      return docs;
+    }
+    
+    return docs.filter(doc => {
+      const isOwner = doc.user_role === 'OWNER';
+      if (ownershipFilter === 'owned') {
+        return isOwner;
+      } else { // 'shared'
+        return !isOwner;
+      }
+    });
+  }, [isSearchMode, searchResults, pageCache, currentPage, ownershipFilter]);
 
   const goToPage = (page: number): void => {
     if (page < 1 || page > totalPages || page === currentPage) return;
@@ -604,6 +622,28 @@ const DocumentsPage: React.FC = () => {
               </button>
             </div>
           </div>
+          {/* Ownership Filter */}
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontWeight: 500 }}>Show:</span>
+            <button
+              className={`btn ${ownershipFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setOwnershipFilter('all')}
+            >
+              All Documents
+            </button>
+            <button
+              className={`btn ${ownershipFilter === 'owned' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setOwnershipFilter('owned')}
+            >
+              My Documents
+            </button>
+            <button
+              className={`btn ${ownershipFilter === 'shared' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setOwnershipFilter('shared')}
+            >
+              Shared with Me
+            </button>
+          </div>
         </div>
       </div>
 
@@ -801,11 +841,21 @@ const DocumentsPage: React.FC = () => {
           </div>
         ) : (
           <div className="documents-grid">
-            {currentDocuments.map(document => (
-              <div key={document.id} className="document-card">
+            {currentDocuments.map((document: Document) => {
+              const role = document.user_role || 'OWNER';
+              const roleClass = role === 'VIEWER' ? 'document-card--viewer' : 
+                               role === 'EDITOR' ? 'document-card--editor' : 
+                               'document-card--owner';
+              return (
+              <div key={document.id} className={`document-card ${roleClass}`}>
                 <div className="document-header">
                   <h3 className="document-title">{document.title}</h3>
-                  <span className="document-id">ID: {document.id}</span>
+                  <div className="document-header-right">
+                    <span className={`document-role-badge document-role-badge--${role.toLowerCase()}`}>
+                      {role}
+                    </span>
+                    <span className="document-id">ID: {document.id}</span>
+                  </div>
                 </div>
 
                 <div className="document-content">
@@ -842,7 +892,7 @@ const DocumentsPage: React.FC = () => {
                     {document.labels && document.labels.length > 0 && (
                       <div style={{ marginTop: 6 }}>
                         <strong>Labels:</strong>{' '}
-                        {document.labels.map(l => (
+                        {document.labels.map((l: Label) => (
                           <span key={l.id} style={{ display: 'inline-block', padding: '2px 6px', margin: '2px 4px', background: '#eef', borderRadius: 6, fontSize: 12 }}>{l.name}</span>
                         ))}
                       </div>
@@ -850,7 +900,7 @@ const DocumentsPage: React.FC = () => {
                     {document.collections && document.collections.length > 0 && (
                       <div style={{ marginTop: 6 }}>
                         <strong>Collections:</strong>{' '}
-                        {document.collections.map(c => (
+                        {document.collections.map((c: Collection) => (
                           <span key={c.id} style={{ display: 'inline-block', padding: '2px 6px', margin: '2px 4px', background: '#efe', borderRadius: 6, fontSize: 12 }}>{c.name}</span>
                         ))}
                       </div>
@@ -995,7 +1045,7 @@ const DocumentsPage: React.FC = () => {
                   </div>
                 )}
               </div>
-            ))}
+            );})}
           </div>
         )}
       </div>

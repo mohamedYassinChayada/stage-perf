@@ -347,10 +347,38 @@ const GroupDocumentsPage: React.FC = () => {
   const handleDeleteACL = async (acl: ACLEntry) => {
     if (!aclDocument) return;
 
+    // Check if we're revoking access from the currently selected group
+    const isRevokingCurrentGroup = 
+      acl.subject_type === 'group' && 
+      selectedGroup && 
+      String(acl.subject_id) === String(selectedGroup.id);
+
     try {
       await deleteDocumentACL(aclDocument.id, acl.id);
       showSnackbar('Access revoked', 'success');
       loadACLs(aclDocument.id);
+      
+      // If we revoked the current group's access, refresh the documents list
+      if (isRevokingCurrentGroup) {
+        // Clear cache for this group and reload
+        setDocumentsCacheLocal((prev) => {
+          const updated = { ...prev };
+          delete updated[selectedGroup.id];
+          return updated;
+        });
+        // Reload documents for this group
+        try {
+          const docs = await getGroupDocuments(selectedGroup.id);
+          setDocuments(docs);
+          setDocumentsCacheLocal((prev) => {
+            const updated = { ...prev, [selectedGroup.id]: docs };
+            syncCache(groupsWithDocs, selectedGroup.id, updated);
+            return updated;
+          });
+        } catch {
+          // Document list refresh failed, but ACL was deleted
+        }
+      }
     } catch (err) {
       showSnackbar('Failed to revoke access', 'error');
     }
