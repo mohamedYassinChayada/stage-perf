@@ -135,6 +135,77 @@
   background: #1e3a5f;
 }
 
+/* Section Headers (collapsible) */
+.groups-section {
+  margin-bottom: 8px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: background 0.2s;
+}
+
+.section-header:hover {
+  background: #f0f2f5;
+}
+
+.section-title {
+  flex: 1;
+  text-align: left;
+}
+
+.section-count {
+  background: #e9ecef;
+  color: #495057;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+/* Owner Crown */
+.owner-crown {
+  color: #f0a500;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* Owner Badge (panel header) */
+.owner-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: 8px;
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* Group Owner Label */
+.group-owner-label {
+  font-size: 0.7rem;
+  color: #8e99a4;
+  font-style: italic;
+}
+
 .groups-list {
   list-style: none;
   padding: 0;
@@ -623,6 +694,28 @@
 :root.dark-mode .panel-header h2 {
   color: #e9ecef;
   border-color: #3d3d3d;
+}
+
+:root.dark-mode .section-header {
+  color: #adb5bd;
+}
+
+:root.dark-mode .section-header:hover {
+  background: #3d3d3d;
+}
+
+:root.dark-mode .section-count {
+  background: #3d3d3d;
+  color: #adb5bd;
+}
+
+:root.dark-mode .owner-badge {
+  background: #4a3c00;
+  color: #ffd700;
+}
+
+:root.dark-mode .group-owner-label {
+  color: #6c757d;
 }
 
 :root.dark-mode .group-item:hover {

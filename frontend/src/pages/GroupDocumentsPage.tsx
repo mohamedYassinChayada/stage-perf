@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   getGroupsWithDocuments,
   getGroupDocuments,
@@ -19,6 +19,7 @@ import type {
 } from '../services/documentService';
 import { Link } from 'react-router-dom';
 import { showSnackbar } from '../components/Snackbar';
+import { usePageCache } from '../contexts/PageCacheContext';
 import './GroupDocumentsPage.css';
 
 // SVG Icons
@@ -67,7 +68,22 @@ const CloseIcon: React.FC = () => (
   </svg>
 );
 
+const CrownIcon: React.FC = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" />
+    <path d="M5 19h14v2H5z" />
+  </svg>
+);
+
+const ChevronIcon: React.FC<{ collapsed: boolean }> = ({ collapsed }) => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
 const GroupDocumentsPage: React.FC = () => {
+  const { getGroupDocumentsCache, setGroupDocumentsCache } = usePageCache();
+
   // State for groups
   const [groupsWithDocs, setGroupsWithDocs] = useState<GroupWithDocuments[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<GroupWithDocuments | null>(null);
@@ -75,6 +91,13 @@ const GroupDocumentsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Collapsible sections
+  const [ownedCollapsed, setOwnedCollapsed] = useState(false);
+  const [memberCollapsed, setMemberCollapsed] = useState(false);
+
+  // Documents cache per group
+  const [documentsCache, setDocumentsCacheLocal] = useState<Record<number, GroupDocument[]>>({});
 
   // State for ACL management modal
   const [showACLModal, setShowACLModal] = useState(false);
@@ -91,6 +114,26 @@ const GroupDocumentsPage: React.FC = () => {
   const [newACLExpires, setNewACLExpires] = useState<string>('');
   const [addingACL, setAddingACL] = useState(false);
 
+  // Segment groups into owned and member
+  const ownedGroups = useMemo(
+    () => groupsWithDocs.filter((g) => g.is_owner),
+    [groupsWithDocs]
+  );
+  const memberGroups = useMemo(
+    () => groupsWithDocs.filter((g) => !g.is_owner),
+    [groupsWithDocs]
+  );
+
+  // Sync to page cache
+  const syncCache = useCallback((groups: GroupWithDocuments[], selId: number | null, docCache: Record<number, GroupDocument[]>) => {
+    setGroupDocumentsCache({
+      groupsWithDocs: groups,
+      selectedGroupId: selId,
+      documents: docCache,
+      timestamp: Date.now(),
+    });
+  }, [setGroupDocumentsCache]);
+
   // Load groups with document counts
   const loadGroups = useCallback(async () => {
     try {
@@ -98,31 +141,44 @@ const GroupDocumentsPage: React.FC = () => {
       setError(null);
       const groups = await getGroupsWithDocuments();
       setGroupsWithDocs(groups);
-      
+
       // Auto-select first group if any
       if (groups.length > 0 && !selectedGroup) {
         setSelectedGroup(groups[0]);
       }
+
+      syncCache(groups, selectedGroup?.id ?? groups[0]?.id ?? null, documentsCache);
     } catch (err) {
       setError((err as Error).message || 'Failed to load groups');
     } finally {
       setLoading(false);
     }
-  }, [selectedGroup]);
+  }, [selectedGroup, documentsCache, syncCache]);
 
   // Load documents for selected group
   const loadDocuments = useCallback(async (groupId: number) => {
+    // Check local documents cache first
+    if (documentsCache[groupId]) {
+      setDocuments(documentsCache[groupId]);
+      return;
+    }
+
     try {
       setLoadingDocuments(true);
       const docs = await getGroupDocuments(groupId);
       setDocuments(docs);
+      setDocumentsCacheLocal((prev) => {
+        const updated = { ...prev, [groupId]: docs };
+        syncCache(groupsWithDocs, groupId, updated);
+        return updated;
+      });
     } catch (err) {
       showSnackbar('Failed to load documents', 'error');
       setDocuments([]);
     } finally {
       setLoadingDocuments(false);
     }
-  }, []);
+  }, [documentsCache, groupsWithDocs, syncCache]);
 
   // Load ACLs for a document
   const loadACLs = async (documentId: number) => {
@@ -150,9 +206,24 @@ const GroupDocumentsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadGroups();
+    const cached = getGroupDocumentsCache();
+    if (cached) {
+      setGroupsWithDocs(cached.groupsWithDocs);
+      setDocumentsCacheLocal(cached.documents);
+      if (cached.selectedGroupId) {
+        const g = cached.groupsWithDocs.find((gr) => gr.id === cached.selectedGroupId) || null;
+        setSelectedGroup(g);
+        if (g && cached.documents[g.id]) {
+          setDocuments(cached.documents[g.id]);
+        }
+      }
+      setLoading(false);
+    } else {
+      loadGroups();
+    }
     loadUsersAndGroups();
-  }, [loadGroups]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (selectedGroup) {
@@ -244,6 +315,39 @@ const GroupDocumentsPage: React.FC = () => {
     }
   };
 
+  // Render a group item in the sidebar
+  const renderGroupItem = (group: GroupWithDocuments) => (
+    <li
+      key={group.id}
+      className={`group-item ${selectedGroup?.id === group.id ? 'selected' : ''}`}
+      onClick={() => setSelectedGroup(group)}
+    >
+      <div className="group-item-icon">
+        <FolderIcon />
+      </div>
+      <div className="group-item-info">
+        <span className="group-name">
+          {group.is_owner && (
+            <span className="owner-crown" title="You own this group">
+              <CrownIcon />
+            </span>
+          )}
+          {group.name}
+        </span>
+        <span className="group-stats">
+          <span>{group.document_count} docs</span>
+          <span>·</span>
+          <span>{group.member_count} members</span>
+        </span>
+        {!group.is_owner && group.created_by_username && (
+          <span className="group-owner-label">
+            Owner: {group.created_by_username}
+          </span>
+        )}
+      </div>
+    </li>
+  );
+
   if (loading) {
     return (
       <div className="group-docs-page">
@@ -259,7 +363,7 @@ const GroupDocumentsPage: React.FC = () => {
     return (
       <div className="group-docs-page">
         <div className="group-docs-error">
-          <p>❌ {error}</p>
+          <p>{error}</p>
           <button onClick={loadGroups}>Retry</button>
         </div>
       </div>
@@ -270,7 +374,7 @@ const GroupDocumentsPage: React.FC = () => {
     <div className="group-docs-page">
       {/* Header */}
       <header className="group-docs-header">
-        <h1>📁 Group Documents</h1>
+        <h1>Group Documents</h1>
         <p>Browse documents shared with your groups and manage access permissions</p>
       </header>
 
@@ -284,27 +388,45 @@ const GroupDocumentsPage: React.FC = () => {
               <Link to="/groups" className="link-btn">Manage Groups</Link>
             </div>
           ) : (
-            <ul className="groups-list">
-              {groupsWithDocs.map((group) => (
-                <li
-                  key={group.id}
-                  className={`group-item ${selectedGroup?.id === group.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedGroup(group)}
-                >
-                  <div className="group-item-icon">
-                    <FolderIcon />
-                  </div>
-                  <div className="group-item-info">
-                    <span className="group-name">{group.name}</span>
-                    <span className="group-stats">
-                      <span>{group.document_count} docs</span>
-                      <span>•</span>
-                      <span>{group.member_count} members</span>
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* Groups I Own */}
+              {ownedGroups.length > 0 && (
+                <div className="groups-section">
+                  <button
+                    className="section-header"
+                    onClick={() => setOwnedCollapsed(!ownedCollapsed)}
+                  >
+                    <ChevronIcon collapsed={ownedCollapsed} />
+                    <span className="section-title">Groups I Own</span>
+                    <span className="section-count">{ownedGroups.length}</span>
+                  </button>
+                  {!ownedCollapsed && (
+                    <ul className="groups-list">
+                      {ownedGroups.map(renderGroupItem)}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {/* Groups I'm In */}
+              {memberGroups.length > 0 && (
+                <div className="groups-section">
+                  <button
+                    className="section-header"
+                    onClick={() => setMemberCollapsed(!memberCollapsed)}
+                  >
+                    <ChevronIcon collapsed={memberCollapsed} />
+                    <span className="section-title">Groups I'm In</span>
+                    <span className="section-count">{memberGroups.length}</span>
+                  </button>
+                  {!memberCollapsed && (
+                    <ul className="groups-list">
+                      {memberGroups.map(renderGroupItem)}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </aside>
 
@@ -315,6 +437,9 @@ const GroupDocumentsPage: React.FC = () => {
               <div className="panel-header">
                 <h2>
                   <FolderIcon /> {selectedGroup.name}
+                  {selectedGroup.is_owner && (
+                    <span className="owner-badge">Owner</span>
+                  )}
                 </h2>
                 <span className="doc-count">{documents.length} document(s)</span>
               </div>

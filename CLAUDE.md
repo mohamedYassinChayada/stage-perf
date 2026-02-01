@@ -100,6 +100,18 @@ docker-compose exec backend bash    # Shell into backend
 docker-compose exec backend python manage.py migrate  # Run migrations
 ```
 
+## SPA Caching Pattern
+
+All pages should implement caching using `PageCacheContext` (`frontend/src/contexts/PageCacheContext.tsx`):
+
+1. Define a cache interface in `PageCacheContext.tsx` for the page
+2. Add `get*Cache`, `set*Cache`, `clear*Cache` methods
+3. On mount, check cache before making API calls; restore from cache if fresh
+4. Sync state to cache when data changes
+5. Cache TTL is 5 minutes (configured in `PageCacheContext.tsx`)
+
+Pages with caching: DocumentsPage, GroupsPage, GroupDocumentsPage, CollectionsManagerPage, OCRPage.
+
 ## Project Documentation
 
 - `DOCKER.md` - Docker setup and commands

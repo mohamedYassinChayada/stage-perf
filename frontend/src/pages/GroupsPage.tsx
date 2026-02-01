@@ -46,6 +46,7 @@ const GroupsPage: React.FC = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<Group | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<GroupMember | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadGroups = async (): Promise<void> => {
     try {
@@ -179,6 +180,10 @@ const GroupsPage: React.FC = () => {
     );
   };
 
+  const filteredGroups = searchQuery.trim()
+    ? groups.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : groups;
+
   const availableUsers = users.filter(
     user => !groupMembers.some(member => member.user_id === user.id)
   );
@@ -220,15 +225,26 @@ const GroupsPage: React.FC = () => {
               <PlusIcon />
             </button>
           </div>
+          {groups.length > 3 && (
+            <div className="groups-search-wrapper">
+              <input
+                type="text"
+                className="groups-search-input"
+                placeholder="Search groups..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          )}
           <div className="groups-list-body">
-            {groups.length === 0 ? (
+            {filteredGroups.length === 0 ? (
               <div className="groups-empty">
                 <UserIcon />
-                <p>No groups yet</p>
-                <p className="groups-empty-hint">Create your first group to get started</p>
+                <p>{searchQuery ? 'No matching groups' : 'No groups yet'}</p>
+                {!searchQuery && <p className="groups-empty-hint">Create your first group to get started</p>}
               </div>
             ) : (
-              groups.map(group => (
+              filteredGroups.map(group => (
                 <div
                   key={group.id}
                   className={`groups-card ${selectedGroup?.id === group.id ? 'selected' : ''}`}

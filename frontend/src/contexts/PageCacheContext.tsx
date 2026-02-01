@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { Document, Label, Collection, Group, User, GroupMember } from '../services/documentService';
+import type { Document, Label, Collection, Group, User, GroupMember, GroupWithDocuments, GroupDocument } from '../services/documentService';
 import type { OCRResult } from '../services/ocrService';
 
 // ---- Documents Page Cache ----
@@ -32,6 +32,14 @@ export interface CollectionsPageCache {
   timestamp: number;
 }
 
+// ---- Group Documents Page Cache ----
+export interface GroupDocumentsPageCache {
+  groupsWithDocs: GroupWithDocuments[];
+  selectedGroupId: number | null;
+  documents: Record<number, GroupDocument[]>;
+  timestamp: number;
+}
+
 // ---- OCR Page Cache ----
 export interface OCRPageCache {
   ocrResult: OCRResult | null;
@@ -57,6 +65,11 @@ interface PageCacheContextValue {
   setCollectionsCache: (cache: CollectionsPageCache) => void;
   clearCollectionsCache: () => void;
 
+  // Group Documents
+  getGroupDocumentsCache: () => GroupDocumentsPageCache | null;
+  setGroupDocumentsCache: (cache: GroupDocumentsPageCache) => void;
+  clearGroupDocumentsCache: () => void;
+
   // OCR
   getOCRCache: () => OCRPageCache | null;
   setOCRCache: (cache: OCRPageCache) => void;
@@ -70,6 +83,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export const PageCacheProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const documentsCacheRef = useRef<DocumentsPageCache | null>(null);
   const groupsCacheRef = useRef<GroupsPageCache | null>(null);
+  const groupDocumentsCacheRef = useRef<GroupDocumentsPageCache | null>(null);
   const collectionsCacheRef = useRef<CollectionsPageCache | null>(null);
   const ocrCacheRef = useRef<OCRPageCache | null>(null);
 
@@ -105,6 +119,21 @@ export const PageCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     groupsCacheRef.current = null;
   }, []);
 
+  // Group Documents
+  const getGroupDocumentsCache = useCallback((): GroupDocumentsPageCache | null => {
+    const cache = groupDocumentsCacheRef.current;
+    if (cache && isFresh(cache.timestamp)) return cache;
+    return null;
+  }, []);
+
+  const setGroupDocumentsCache = useCallback((cache: GroupDocumentsPageCache) => {
+    groupDocumentsCacheRef.current = cache;
+  }, []);
+
+  const clearGroupDocumentsCache = useCallback(() => {
+    groupDocumentsCacheRef.current = null;
+  }, []);
+
   // Collections
   const getCollectionsCache = useCallback((): CollectionsPageCache | null => {
     const cache = collectionsCacheRef.current;
@@ -138,6 +167,7 @@ export const PageCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
   const value: PageCacheContextValue = {
     getDocumentsCache, setDocumentsCache, clearDocumentsCache,
     getGroupsCache, setGroupsCache, clearGroupsCache,
+    getGroupDocumentsCache, setGroupDocumentsCache, clearGroupDocumentsCache,
     getCollectionsCache, setCollectionsCache, clearCollectionsCache,
     getOCRCache, setOCRCache, clearOCRCache,
   };

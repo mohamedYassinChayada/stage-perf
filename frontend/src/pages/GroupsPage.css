@@ -126,6 +126,26 @@
   border-color: #1e3d72;
 }
 
+/* Search */
+.groups-search-wrapper {
+  padding: 8px 10px 0;
+}
+
+.groups-search-input {
+  width: 100%;
+  padding: 7px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.groups-search-input:focus {
+  border-color: #2b579a;
+}
+
 .groups-list-body {
   padding: 8px 10px;
   flex: 1;

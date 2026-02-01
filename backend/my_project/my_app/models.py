@@ -71,6 +71,20 @@ class Document(models.Model):
 # Using Django's built-in auth.Group and auth.User.groups instead of custom models
 
 
+class GroupOwnership(models.Model):
+	"""Tracks who created/owns each group."""
+	group = models.OneToOneField('auth.Group', on_delete=models.CASCADE, related_name='ownership')
+	owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='owned_groups')
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		verbose_name = 'Group Ownership'
+		verbose_name_plural = 'Group Ownerships'
+
+	def __str__(self):
+		return f"{self.group.name} owned by {self.owner.username}"
+
+
 class DocumentVersion(models.Model):
 	id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 	document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='versions')

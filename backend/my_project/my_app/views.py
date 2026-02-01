@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-from .models import Document, QRLink, ACL, Attachment, Label, Collection, DocumentLabel, DocumentCollection, ShareLink, DocumentVersion, AuditLog, Action, UserProfile
+from .models import Document, QRLink, ACL, Attachment, Label, Collection, DocumentLabel, DocumentCollection, ShareLink, DocumentVersion, AuditLog, Action, UserProfile, GroupOwnership
 from django.contrib.auth.models import Group
 from .serializers import (
     OCRUploadSerializer, OCRResponseSerializer, OCRErrorSerializer,
@@ -1625,6 +1625,8 @@ def groups_list_create(request):
             group = serializer.save()
             # Add creator as a member
             request.user.groups.add(group)
+            # Track group ownership
+            GroupOwnership.objects.create(group=group, owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -2181,7 +2183,7 @@ def groups_with_documents(request):
         groups = Group.objects.all()
     else:
         groups = request.user.groups.all()
-    
+
     result = []
     for group in groups:
         # Count documents shared with this group
@@ -2191,14 +2193,26 @@ def groups_with_documents(request):
         ).filter(
             Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
         ).values('document_id').distinct().count()
-        
+
+        # Check ownership
+        is_owner = False
+        created_by_username = None
+        try:
+            ownership = group.ownership
+            is_owner = ownership.owner_id == request.user.id
+            created_by_username = ownership.owner.username
+        except GroupOwnership.DoesNotExist:
+            pass
+
         result.append({
             'id': group.id,
             'name': group.name,
             'document_count': doc_count,
-            'member_count': group.user_set.count()
+            'member_count': group.user_set.count(),
+            'is_owner': is_owner,
+            'created_by_username': created_by_username,
         })
-    
+
     return Response(result)
 
 

@@ -121,6 +121,7 @@ export type DocumentVersion = VersionDetail;
 
 export interface MeResponse {
   authenticated: boolean;
+  id?: number;
   username?: string;
   email?: string;
   avatar_url?: string | null;
@@ -1039,6 +1040,8 @@ export interface GroupWithDocuments {
   name: string;
   document_count: number;
   member_count: number;
+  is_owner: boolean;
+  created_by_username: string | null;
 }
 
 export interface GroupDocument extends Document {
