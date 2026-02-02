@@ -242,12 +242,13 @@ class DocumentListSerializer(serializers.ModelSerializer):
     labels = serializers.SerializerMethodField()
     collections = serializers.SerializerMethodField()
     user_role = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
         fields = [
             'id', 'title', 'qr_code_url', 'created_at', 'updated_at',
-            'owner_username', 'labels', 'collections', 'user_role'
+            'owner_username', 'labels', 'collections', 'user_role', 'file_url'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -287,6 +288,16 @@ class DocumentListSerializer(serializers.ModelSerializer):
         
         from .permissions import get_user_effective_role
         return get_user_effective_role(request.user, obj)
+
+    def get_file_url(self, obj):
+        """Get the download URL for the first attachment (original file)."""
+        request = self.context.get('request')
+        first = obj.attachments.order_by('created_at').first()
+        if not first or not request:
+            return None
+        from django.urls import reverse
+        url = reverse('my_app:attachment_download', kwargs={'attachment_id': str(first.id)})
+        return request.build_absolute_uri(url)
 
 
 class DocumentCreateSerializer(serializers.ModelSerializer):

@@ -26,6 +26,7 @@ Le deuxieme sprint porte sur le coeur fonctionnel du systeme de gestion document
 | T2.10 | Modeles et endpoints pour labels et collections | 5 | Termine |
 | T2.11 | Interface OCR frontend | 5 | Termine |
 | T2.12 | Interface de gestion des labels et collections | 3 | Termine |
+| T2.13 | Stockage du fichier original OCR et attribution automatique du label "OCR" | 3 | Termine |
 
 ## 3. Specification des besoins
 
@@ -328,6 +329,14 @@ L'editeur expose une API via `React.forwardRef` comprenant les methodes : `getEd
 
 **Page de gestion des collections (CollectionsManagerPage.tsx)** : Cette page permet de creer des collections (eventuellement hierarchiques en specifiant un parent), de supprimer des collections et d'assigner des documents a des collections.
 
+### c. Stockage du fichier original OCR et label automatique
+
+Lorsqu'un document est cree a partir de la page OCR, le fichier source (image ou PDF) est automatiquement conserve en tant que piece jointe (`Attachment`) associee au document. Cela permet a l'utilisateur de consulter le fichier original a tout moment via le bouton "Voir Original" present sur la carte du document dans la liste.
+
+De plus, un label **"OCR"** est automatiquement attribue au document lors de sa creation. Ce mecanisme utilise `get_or_create` pour garantir l'unicite du label et faciliter le filtrage des documents issus de l'OCR dans l'interface de recherche. Le champ `metadata` de la piece jointe est egalement enrichi avec l'indicateur `{is_ocr_source: true}` pour identifier le fichier source de maniere programmatique.
+
+Ce fonctionnement repose sur un indicateur `is_ocr` envoye par le frontend lors de la creation du document, garantissant que seuls les documents crees via le pipeline OCR recoivent ce traitement automatique.
+
 ## 6. Tests et validation
 
 | Test | Description | Resultat |
@@ -342,6 +351,9 @@ L'editeur expose une API via `React.forwardRef` comprenant les methodes : `getEd
 | T8 | Export au format Word (.docx) | Le fichier genere s'ouvre correctement dans Microsoft Word. |
 | T9 | Creation et attribution de labels | Les labels sont correctement associes au document. |
 | T10 | Organisation en collections hierarchiques | Les collections parent-enfant fonctionnent correctement. |
+| T11 | Creation d'un document via OCR avec attribution automatique du label "OCR" | Le label "OCR" apparait sur le document dans la liste. |
+| T12 | Acces au fichier original via le bouton "Voir Original" | Le fichier source (image/PDF) est telecharge correctement. |
+| T13 | Creation d'un document normal (hors OCR) sans label "OCR" | Le document ne recoit pas le label "OCR" automatiquement. |
 
 ## 7. Revue de sprint
 

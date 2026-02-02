@@ -43,6 +43,13 @@ sequenceDiagram
         API->>DB: INSERT Attachment (filename, data, media_type)
     end
 
+    opt Document cree depuis OCR (is_ocr=true)
+        API->>DB: SELECT ou INSERT Label (name="OCR")
+        DB-->>API: Label OCR
+        API->>DB: INSERT DocumentLabel (document, label=OCR)
+        API->>DB: UPDATE Attachment SET metadata={is_ocr_source: true}
+    end
+
     API-->>FE: 201 Created (document JSON + qr_code_url)
     FE-->>U: Afficher nouveau document avec QR code
 ```
@@ -237,4 +244,58 @@ sequenceDiagram
     ES->>FE: Emettre evenement ACCESS_REVOKED
     ES->>ES: stop() -- arreter le polling
     FE-->>U: Afficher message "Acces revoque"
+```
+
+## Sequence 6 : Creation de document depuis OCR (Nouveau)
+
+> **Nouveau diagramme** : Flux complet de creation d'un document a partir d'un fichier scanne via OCR, avec stockage du fichier original et attribution automatique du label "OCR".
+
+```mermaid
+sequenceDiagram
+    actor U as Utilisateur
+    participant FE as Frontend React<br/>(OCRPage)
+    participant API as Backend Django
+    participant OCR as EasyOCR Engine
+    participant DB as PostgreSQL
+
+    U->>FE: Uploader image/PDF sur la page OCR
+    FE->>API: POST /api/ocr/extract-detailed/ (multipart file)
+    API->>OCR: Extraction de texte (EasyOCR)
+    OCR-->>API: Resultats OCR (text, lines, blocks, confidence)
+    API-->>FE: 200 OK {text, lines[], blocks[], confidence}
+    FE-->>U: Afficher texte extrait avec apercu
+
+    U->>FE: Cliquer "Enregistrer comme document"
+    FE->>FE: Construire FormData (title, file, html, is_ocr=true)
+    FE->>API: POST /api/documents/ (FormData + Token)
+
+    API->>API: Authentifier via Token
+    API->>DB: INSERT Document (title, html, text, owner)
+    DB-->>API: Document cree (id=N)
+
+    API->>DB: INSERT DocumentVersion (version_no=1)
+    API->>DB: INSERT AuditLog (action=EDIT)
+    API->>DB: INSERT QRLink (code, active=true)
+    API->>DB: UPDATE Document SET qr_code_data = bytes
+
+    Note over API,DB: Stockage du fichier original
+    API->>DB: INSERT Attachment (filename, data, media_type, metadata={})
+    DB-->>API: Attachment cree
+
+    Note over API,DB: Attribution automatique du label OCR
+    API->>DB: SELECT ou INSERT Label (name="OCR")
+    DB-->>API: Label OCR (get_or_create)
+    API->>DB: INSERT DocumentLabel (document=N, label=OCR)
+    API->>DB: UPDATE Attachment SET metadata={is_ocr_source: true}
+
+    API-->>FE: 201 Created (document JSON avec file_url)
+    FE-->>U: Rediriger vers editeur du document
+
+    Note over U,DB: Acces ulterieur au fichier original
+    U->>FE: Cliquer "Voir Original" sur la carte du document
+    FE->>API: GET /api/attachments/{id}/download/
+    API->>DB: SELECT Attachment WHERE id=...
+    DB-->>API: Donnees binaires du fichier
+    API-->>FE: Reponse fichier (Content-Disposition)
+    FE-->>U: Telecharger/afficher le fichier original
 ```

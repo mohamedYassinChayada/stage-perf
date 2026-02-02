@@ -437,7 +437,7 @@ class DocumentListCreateView(generics.ListCreateAPIView):
         user = self.request.user
 
         # Base queryset with select_related for owner
-        base_qs = Document.objects.select_related('owner')
+        base_qs = Document.objects.select_related('owner').prefetch_related('attachments')
 
         # Admin users see all documents
         if user.is_staff or user.is_superuser:
@@ -571,6 +571,17 @@ class DocumentListCreateView(generics.ListCreateAPIView):
                     )
                 except Exception as e:
                     logger.warning(f"Could not create attachment: {e}")
+
+            # Auto-assign "OCR" label for OCR-created documents
+            is_ocr = request.data.get('is_ocr', '').lower() in ('true', '1', 'yes')
+            if is_ocr:
+                ocr_label, _ = Label.objects.get_or_create(name='OCR')
+                DocumentLabel.objects.get_or_create(document=document, label=ocr_label)
+                # Mark attachment as OCR source
+                att = Attachment.objects.filter(document=document).order_by('-created_at').first()
+                if att:
+                    att.metadata = {'is_ocr_source': True}
+                    att.save(update_fields=['metadata'])
 
             # Return document data
             response_serializer = DocumentSerializer(document, context={'request': request})
@@ -1521,7 +1532,7 @@ def search_standard(request):
     if label_ids:
         qs = qs.filter(documentlabel__label_id__in=label_ids).distinct()
     # Optimize with select_related and use lighter serializer
-    qs = qs.select_related('owner').order_by('-updated_at')[:50]  # Limit results
+    qs = qs.select_related('owner').prefetch_related('attachments').order_by('-updated_at')[:50]  # Limit results
     data = DocumentListSerializer(qs, many=True, context={'request': request}).data
     return Response(data, status=200)
 
@@ -1557,7 +1568,7 @@ def search_deep(request):
         logger.error(f"Deep search error: {e}")
         qs = qs.filter(text__icontains=q).order_by('-updated_at')
     # Optimize and limit results
-    qs = qs.select_related('owner')[:50]
+    qs = qs.select_related('owner').prefetch_related('attachments')[:50]
     data = DocumentListSerializer(qs, many=True, context={'request': request}).data
     return Response(data, status=200)
 

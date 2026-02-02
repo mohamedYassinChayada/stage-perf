@@ -559,6 +559,7 @@ export const createDocumentFromOCR = async (
     const formData = new FormData();
     formData.append('title', title);
     formData.append('file', file);
+    formData.append('is_ocr', 'true');
 
     if (htmlContent) {
       formData.append('html', htmlContent);

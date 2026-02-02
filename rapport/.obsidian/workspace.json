@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "chapitre-2-etude-prealable.md",
+                "file": "chapitre-1-introduction-generale.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "chapitre-2-etude-prealable"
+              "title": "chapitre-1-introduction-generale"
             }
           }
         ]
@@ -171,6 +171,10 @@
   },
   "active": "4e759ca11d723dfb",
   "lastOpenFiles": [
+    "chapitre-4-sprint2-ocr-editeur.md.tmp.36108.1770039664850",
+    "chapitre-4-sprint2-ocr-editeur.md.tmp.36108.1770039657862",
+    "chapitre-4-sprint2-ocr-editeur.md.tmp.36108.1770039646030",
+    "chapitre-2-etude-prealable.md",
     "chapitre-6-conclusion-generale.md.tmp.17284.1769966123260",
     "chapitre-6-conclusion-generale.md.tmp.17284.1769966116736",
     "chapitre-6-conclusion-generale.md.tmp.17284.1769966107844",
@@ -179,14 +183,10 @@
     "chapitre-5-sprint3-partage-recherche.md.tmp.17284.1769966070252",
     "chapitre-5-sprint3-partage-recherche.md.tmp.17284.1769966061744",
     "chapitre-5-sprint3-partage-recherche.md.tmp.17284.1769966042486",
-    "chapitre-5-sprint3-partage-recherche.md.tmp.17284.1769966033000",
-    "chapitre-5-sprint3-partage-recherche.md.tmp.17284.1769966009718",
-    "chapitre-5-sprint3-partage-recherche.md.tmp.17284.1769965994028",
     "chapitre-1-introduction-generale.md",
     "chapitre-6-conclusion-generale.md",
     "chapitre-5-sprint3-partage-recherche.md",
     "chapitre-4-sprint2-ocr-editeur.md",
-    "chapitre-3-sprint1-authentification.md",
-    "chapitre-2-etude-prealable.md"
+    "chapitre-3-sprint1-authentification.md"
   ]
 }
