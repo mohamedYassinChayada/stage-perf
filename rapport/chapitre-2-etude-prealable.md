@@ -141,24 +141,24 @@ Les roles Scrum ont ete definis comme suit :
 
 Le Product Backlog a ete constitue a partir des besoins fonctionnels identifies. Chaque element a ete estime en points de complexite et priorise :
 
-| ID | User Story | Estimation | Sprint |
-|----|-----------|-----------|--------|
-| US01 | En tant qu'utilisateur, je veux m'inscrire et me connecter pour acceder au systeme. | 5 | Sprint 1 |
-| US02 | En tant qu'utilisateur, je veux que mes sessions soient securisees par token. | 3 | Sprint 1 |
-| US03 | En tant que proprietaire, je veux definir les roles d'acces a mes documents. | 8 | Sprint 1 |
-| US04 | En tant qu'administrateur, je veux consulter le journal d'audit. | 5 | Sprint 1 |
-| US05 | En tant qu'utilisateur, je veux extraire du texte depuis une image ou un PDF par OCR. | 8 | Sprint 2 |
-| US06 | En tant qu'utilisateur, je veux editer des documents avec un editeur riche multi-pages. | 13 | Sprint 2 |
-| US07 | En tant qu'utilisateur, je veux exporter mes documents au format Word. | 5 | Sprint 2 |
-| US08 | En tant qu'utilisateur, je veux gerer les versions de mes documents. | 8 | Sprint 2 |
-| US09 | En tant qu'utilisateur, je veux organiser mes documents par labels et collections. | 5 | Sprint 2 |
-| US10 | En tant qu'utilisateur, je veux partager un document via un lien avec token. | 5 | Sprint 3 |
-| US11 | En tant qu'utilisateur, je veux generer un QR code pour acceder rapidement a un document. | 5 | Sprint 3 |
-| US12 | En tant qu'utilisateur, je veux rechercher des documents par titre et contenu. | 8 | Sprint 3 |
-| US13 | En tant qu'utilisateur, je veux une recherche avancee plein texte. | 5 | Sprint 3 |
-| US14 | En tant qu'utilisateur, je veux gerer les documents de mes groupes sur une page dediee. | 5 | Sprint 3 |
-| US15 | En tant qu'utilisateur, je veux recevoir des mises a jour en temps reel sur mes documents (event polling). | 5 | Sprint 3 |
-| US16 | En tant qu'utilisateur, je veux un mode sombre et un profil avec avatar. | 3 | Sprint 3 |
+| ID   | User Story                                                                                                 | Estimation | Sprint   |
+| ---- | ---------------------------------------------------------------------------------------------------------- | ---------- | -------- |
+| US01 | En tant qu'utilisateur, je veux m'inscrire et me connecter pour acceder au systeme.                        | 5          | Sprint 1 |
+| US02 | En tant qu'utilisateur, je veux que mes sessions soient securisees par token.                              | 3          | Sprint 1 |
+| US03 | En tant que proprietaire, je veux definir les roles d'acces a mes documents.                               | 8          | Sprint 1 |
+| US04 | En tant qu'administrateur, je veux consulter le journal d'audit.                                           | 5          | Sprint 1 |
+| US05 | En tant qu'utilisateur, je veux extraire du texte depuis une image ou un PDF par OCR.                      | 8          | Sprint 2 |
+| US06 | En tant qu'utilisateur, je veux editer des documents avec un editeur riche multi-pages.                    | 13         | Sprint 2 |
+| US07 | En tant qu'utilisateur, je veux exporter mes documents au format Word.                                     | 5          | Sprint 2 |
+| US08 | En tant qu'utilisateur, je veux gerer les versions de mes documents.                                       | 8          | Sprint 2 |
+| US09 | En tant qu'utilisateur, je veux organiser mes documents par labels et collections.                         | 5          | Sprint 2 |
+| US10 | En tant qu'utilisateur, je veux partager un document via un lien avec token.                               | 5          | Sprint 3 |
+| US11 | En tant qu'utilisateur, je veux generer un QR code pour acceder rapidement a un document.                  | 5          | Sprint 3 |
+| US12 | En tant qu'utilisateur, je veux rechercher des documents par titre et contenu.                             | 8          | Sprint 3 |
+| US13 | En tant qu'utilisateur, je veux une recherche avancee plein texte.                                         | 5          | Sprint 3 |
+| US14 | En tant qu'utilisateur, je veux gerer les documents de mes groupes sur une page dediee.                    | 5          | Sprint 3 |
+| US15 | En tant qu'utilisateur, je veux recevoir des mises a jour en temps reel sur mes documents (event polling). | 5          | Sprint 3 |
+| US16 | En tant qu'utilisateur, je veux un mode sombre et un profil avec avatar.                                   | 3          | Sprint 3 |
 
 ### c. Planning des sprints
 
