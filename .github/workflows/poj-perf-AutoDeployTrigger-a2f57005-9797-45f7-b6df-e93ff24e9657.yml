@@ -16,7 +16,7 @@ jobs:
     permissions: 
       id-token: write
       contents: read
-      packages: write  # Required for GHCR
+      packages: write
 
     steps:
       - name: Checkout to the branch
@@ -53,10 +53,27 @@ jobs:
           tenant-id: ${{ secrets.POJPERF_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.POJPERF_AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          containerAppName: poj-perf
-          resourceGroup: poj-perf-rg
-          imageToDeploy: ghcr.io/${{ steps.lowercase.outputs.owner }}/poj-perf-backend:${{ github.sha }}
-          targetPort: 8000
+      - name: Install Container Apps extension
+        run: az extension add --name containerapp --upgrade --allow-preview true
+
+      - name: Update Container App with new image
+        run: |
+          az containerapp update \
+            --name poj-perf \
+            --resource-group poj-perf-rg \
+            --image ghcr.io/${{ steps.lowercase.outputs.owner }}/poj-perf-backend:${{ github.sha }}
+
+      - name: Configure ingress for port 8000
+        run: |
+          az containerapp ingress update \
+            --name poj-perf \
+            --resource-group poj-perf-rg \
+            --target-port 8000 \
+            --external true \
+            --transport auto
+
+      - name: Restart Container App
+        run: |
+          az containerapp revision restart \
+            --name poj-perf \
+            --resource-group poj-perf-rg
