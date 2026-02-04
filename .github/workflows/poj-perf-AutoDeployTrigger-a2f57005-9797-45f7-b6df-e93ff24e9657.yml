@@ -56,24 +56,18 @@ jobs:
       - name: Install Container Apps extension
         run: az extension add --name containerapp --upgrade --allow-preview true
 
-      - name: Update Container App with new image
-        run: |
-          az containerapp update \
-            --name poj-perf \
-            --resource-group poj-perf-rg \
-            --image ghcr.io/${{ steps.lowercase.outputs.owner }}/poj-perf-backend:${{ github.sha }}
-
       - name: Configure ingress for port 8000
         run: |
           az containerapp ingress update \
             --name poj-perf \
             --resource-group poj-perf-rg \
             --target-port 8000 \
-            --external true \
+            --type external \
             --transport auto
 
-      - name: Restart Container App
+      - name: Update Container App with new image
         run: |
-          az containerapp revision restart \
+          az containerapp update \
             --name poj-perf \
-            --resource-group poj-perf-rg
+            --resource-group poj-perf-rg \
+            --image ghcr.io/${{ steps.lowercase.outputs.owner }}/poj-perf-backend:${{ github.sha }}
