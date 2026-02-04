@@ -32,13 +32,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Convert repository owner to lowercase
+        id: lowercase
+        run: echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/poj-perf-backend:${{ github.sha }},ghcr.io/${{ github.repository_owner }}/poj-perf-backend:latest
+          tags: |
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/poj-perf-backend:${{ github.sha }}
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/poj-perf-backend:latest
 
       - name: Azure Login
         uses: azure/login@v2
@@ -52,5 +58,5 @@ jobs:
         with:
           containerAppName: poj-perf
           resourceGroup: poj-perf-rg
-          imageToDeploy: ghcr.io/${{ github.repository_owner }}/poj-perf-backend:${{ github.sha }}
+          imageToDeploy: ghcr.io/${{ steps.lowercase.outputs.owner }}/poj-perf-backend:${{ github.sha }}
           targetPort: 8000
