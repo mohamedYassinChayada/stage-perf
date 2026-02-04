@@ -30,7 +30,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-$9_$)o4pu@3ou#_&fxi
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-# Allowed hosts - add your Koyeb domain here
+# Allowed hosts - add your Azure Container Apps domain here
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
@@ -62,6 +62,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Azure Container Apps terminates TLS at the ingress and forwards HTTP to the container.
+# Without this, CSRF validation breaks on HTTPS requests from Vercel.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 ROOT_URLCONF = 'my_project.urls'
 
@@ -99,6 +103,7 @@ if DATABASE_URL:
             'HOST': tmpPostgres.hostname,
             'PORT': 5432,
             'OPTIONS': dict(parse_qsl(tmpPostgres.query)),
+            'CONN_MAX_AGE': 600,
         }
     }
 else:

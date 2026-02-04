@@ -169,19 +169,19 @@ gantt
     axisFormat  %d/%m
 
     section Sprint 1
-    Authentification et Gestion Utilisateurs   :s1, 2025-01-15, 14d
+    Auth et Gestion Utilisateurs       :s1, 2025-01-15, 14d
 
     section Sprint 2
-    OCR et Editeur Documentaire                :s2, after s1, 14d
+    OCR et Editeur Documentaire        :s2, after s1, 14d
 
     section Sprint 3
-    Partage Securise et Recherche              :s3, after s2, 14d
+    Partage Securise et Recherche      :s3, after s2, 14d
 ```
 
 *Figure 3 : Planning des sprints (diagramme de Gantt)*
 
-| Sprint | Duree | Objectif principal | User Stories |
-|--------|-------|--------------------|-------------|
-| Sprint 1 | 2 semaines | Authentification et gestion des utilisateurs | US01, US02, US03, US04 |
-| Sprint 2 | 2 semaines | OCR et editeur documentaire | US05, US06, US07, US08, US09 |
-| Sprint 3 | 2 semaines | Partage securise et recherche | US10, US11, US12, US13, US14, US15, US16 |
+| Sprint   | Duree      | Objectif principal                           | User Stories                             |
+| -------- | ---------- | -------------------------------------------- | ---------------------------------------- |
+| Sprint 1 | 2 semaines | Authentification et gestion des utilisateurs | US01, US02, US03, US04                   |
+| Sprint 2 | 2 semaines | OCR et editeur documentaire                  | US05, US06, US07, US08, US09             |
+| Sprint 3 | 2 semaines | Partage securise et recherche                | US10, US11, US12, US13, US14, US15, US16 |

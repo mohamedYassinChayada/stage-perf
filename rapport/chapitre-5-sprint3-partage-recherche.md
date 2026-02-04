@@ -360,11 +360,11 @@ En complement des environnements precedents, les technologies suivantes ont ete 
 
 **Technologies de partage et recherche :**
 
-| Technologie | Version | Role |
-|------------|---------|------|
-| qrcode[pil] | 7.4.2+ | Generation de QR codes en Python |
-| jsQR | 1.4.0 | Lecture de QR codes cote client (JavaScript) |
-| PostgreSQL SearchVector | Natif | Recherche plein texte (tsvector/tsquery) |
+| Technologie             | Version | Role                                         |
+| ----------------------- | ------- | -------------------------------------------- |
+| qrcode[pil]             | 7.4.2+  | Generation de QR codes en Python             |
+| jsQR                    | 1.4.0   | Lecture de QR codes cote client (JavaScript) |
+| PostgreSQL SearchVector | Natif   | Recherche plein texte (tsvector/tsquery)     |
 
 **Technologies d'interface et experience utilisateur :**
 
