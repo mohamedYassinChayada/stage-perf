@@ -873,7 +873,7 @@ def me(request):
     try:
         profile = request.user.profile
         if profile.avatar:
-            avatar_url = request.build_absolute_uri(profile.avatar.url)
+            avatar_url = profile.avatar
     except UserProfile.DoesNotExist:
         pass
     return Response({
@@ -1035,6 +1035,7 @@ def change_password(request):
 @permission_classes([IsAuthenticated])
 def upload_avatar(request):
     """Upload or update user avatar."""
+    import base64
     if 'avatar' not in request.FILES:
         return Response({'error': 'No avatar file provided'}, status=400)
 
@@ -1051,14 +1052,13 @@ def upload_avatar(request):
 
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
-    # Delete old avatar if exists
-    if profile.avatar:
-        profile.avatar.delete(save=False)
-
-    profile.avatar = avatar_file
+    # Store as base64 data URI in the database
+    file_data = avatar_file.read()
+    b64 = base64.b64encode(file_data).decode('utf-8')
+    avatar_url = f"data:{avatar_file.content_type};base64,{b64}"
+    profile.avatar = avatar_url
     profile.save()
 
-    avatar_url = request.build_absolute_uri(profile.avatar.url)
     return Response({
         'message': 'Avatar uploaded successfully',
         'avatar_url': avatar_url

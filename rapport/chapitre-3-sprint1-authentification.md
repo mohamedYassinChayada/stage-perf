@@ -297,6 +297,9 @@ L'environnement de developpement mis en place pour le projet est le suivant :
 | Git | Derniere version | Gestion de versions du code |
 | Docker Desktop | Derniere version | Conteneurisation |
 | PostgreSQL | 15+ (Neon Cloud) | Base de donnees |
+| Azure Container Apps | - | Hebergement backend (conteneur Docker) |
+| Vercel | - | Hebergement frontend (SPA React) |
+| GitHub Actions | - | CI/CD (build, test, deploiement) |
 
 **Technologies backend :**
 

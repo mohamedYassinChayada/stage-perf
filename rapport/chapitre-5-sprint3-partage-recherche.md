@@ -254,7 +254,7 @@ classDiagram
     class UserProfile {
         +int id
         +User user
-        +ImageField avatar
+        +Text avatar
     }
 
     Document "1" --> "*" ShareLink : partage via
@@ -269,7 +269,7 @@ classDiagram
     note for ShareLink "token: UUID unique\nrole: VIEWER | EDITOR\nrevoked_at: null si actif"
     note for QRLink "code: 'doc-{id}-{timestamp}'\nactive: un seul QR actif par document"
     note for GroupOwnership "Nouveau : suivi de la\npropriere de chaque groupe"
-    note for UserProfile "Nouveau : avatar utilisateur"
+    note for UserProfile "Avatar utilisateur stocke en\nbase64 (data URI) en base\nde donnees Neon Cloud"
 ```
 
 *Figure 21 : Diagramme de classes -- Sprint 3*
@@ -405,7 +405,7 @@ Le mecanisme utilise un intervalle adaptatif (5s initialement, jusqu'a 30s en l'
 
 **Mode sombre et variables CSS** : L'interface a ete refactorisee pour utiliser des variables CSS pour les couleurs, les arriere-plans, les bordures et les effets de survol. Cela permet de basculer facilement entre le mode clair et le mode sombre via un bouton dans le menu utilisateur. Les pages GroupsPage, OCRPage, SettingsPage, DocumentsPage et plusieurs autres ont ete mises a jour.
 
-**Menu utilisateur et profil (UserMenu.tsx)** : Un nouveau composant de menu utilisateur a ete ajoute, offrant un bouton de bascule pour le mode sombre et la possibilite de telecharger un avatar de profil. Le modele `UserProfile` cote backend stocke l'image d'avatar.
+**Menu utilisateur et profil (UserMenu.tsx)** : Un nouveau composant de menu utilisateur a ete ajoute, offrant un bouton de bascule pour le mode sombre et la possibilite de telecharger un avatar de profil. Le modele `UserProfile` cote backend stocke l'avatar sous forme de data URI base64 directement en base de donnees, garantissant la persistance dans l'environnement cloud (Azure Container Apps) sans dependance au systeme de fichiers du conteneur.
 
 ## 6. Tests et validation
 
@@ -447,7 +447,7 @@ Le mecanisme utilise un intervalle adaptatif (5s initialement, jusqu'a 30s en l'
 - Composant Snackbar reutilisable integre dans toute l'application.
 - Variables CSS et support du mode sombre / mode clair.
 - Mise en cache des pages via PageCacheContext (TTL de 5 minutes).
-- Profil utilisateur avec avatar (modele UserProfile).
+- Profil utilisateur avec avatar stocke en base64 en base de donnees (modele UserProfile).
 
 **Points positifs :**
 - Le systeme de QR codes offre un acces rapide et pratique aux documents.

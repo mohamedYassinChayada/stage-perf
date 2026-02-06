@@ -15,7 +15,7 @@ classDiagram
 
     class UserProfile {
         +int id
-        +ImageField avatar
+        +Text avatar
     }
 
     class Group {
@@ -181,7 +181,7 @@ classDiagram
     DocumentRelation ..> RelationType : uses
 
     note for GroupOwnership "Nouveau modele : suivi de\nla propriete des groupes\n(OneToOne avec Group)"
-    note for UserProfile "Nouveau modele : profil\nutilisateur avec avatar\n(OneToOne avec User)"
+    note for UserProfile "Profil utilisateur avec avatar\nstocke en base64 (data URI)\nen base de donnees\n(OneToOne avec User)"
     note for Document "qr_code_data : stockage binaire\nen base de donnees (Neon Cloud)\nau lieu de fichier sur disque"
     note for Attachment "metadata peut contenir\n{is_ocr_source: true} pour\nidentifier le fichier source OCR"
     note for Label "Le label 'OCR' est auto-assigne\naux documents crees via OCR"
@@ -192,7 +192,7 @@ classDiagram
 | Element | Modification |
 |---------|-------------|
 | `GroupOwnership` | Nouveau modele -- suivi de la propriete des groupes (OneToOne avec `auth.Group`) |
-| `UserProfile` | Nouveau modele -- profil utilisateur avec avatar (OneToOne avec `auth.User`) |
+| `UserProfile` | Nouveau modele -- profil utilisateur avec avatar stocke en base64 (data URI) en base de donnees (OneToOne avec `auth.User`) |
 | `Document.qr_code_data` | Remplace `Document.qr_code` (ImageField) par un champ `BinaryField` pour stockage en base de donnees |
 | Relations Group | Ajout de la relation `Group` --> `GroupOwnership` --> `User` |
 | `Attachment.metadata` | Peut contenir `{is_ocr_source: true}` pour les fichiers sources OCR |

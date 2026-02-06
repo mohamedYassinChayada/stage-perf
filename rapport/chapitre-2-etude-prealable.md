@@ -48,6 +48,61 @@ graph TB
 
 *Figure 1 : Vue d'ensemble de la solution proposee*
 
+### Architecture de deploiement
+
+L'application est deployee sur une infrastructure cloud multi-services :
+
+```mermaid
+graph TB
+    subgraph "Client"
+        Browser[Navigateur Web]
+    end
+
+    subgraph "Vercel"
+        Frontend[Frontend React/TypeScript<br/>Build Vite + SPA Routing]
+    end
+
+    subgraph "Microsoft Azure"
+        subgraph "Azure Container Apps"
+            Backend[Backend Django<br/>Gunicorn + WhiteNoise]
+        end
+        subgraph "GitHub Container Registry"
+            GHCR[Image Docker Backend]
+        end
+    end
+
+    subgraph "Neon Cloud"
+        DB[(PostgreSQL 15+)]
+    end
+
+    subgraph "CI/CD"
+        GHA[GitHub Actions]
+    end
+
+    Browser -->|HTTPS| Frontend
+    Frontend -->|API REST HTTPS| Backend
+    Backend -->|SSL| DB
+    GHA -->|Build & Push| GHCR
+    GHA -->|Deploy| Backend
+
+    style Browser fill:#e1f5fe
+    style Frontend fill:#f3e5f5
+    style Backend fill:#e8f5e9
+    style DB fill:#fff3e0
+    style GHCR fill:#e3f2fd
+    style GHA fill:#fce4ec
+```
+
+*Figure 1b : Architecture de deploiement cloud*
+
+| Service | Plateforme | Role |
+|---------|-----------|------|
+| Frontend | Vercel | Hebergement du SPA React avec CDN global et deploiement automatique depuis GitHub |
+| Backend | Azure Container Apps | Execution du conteneur Docker Django avec auto-scaling et HTTPS natif |
+| Base de donnees | Neon Cloud | PostgreSQL serverless avec connexion SSL et haute disponibilite |
+| Registry | GitHub Container Registry (GHCR) | Stockage des images Docker du backend |
+| CI/CD | GitHub Actions | Pipeline de build, test et deploiement automatique |
+
 Les principaux modules de la solution sont :
 - **Module d'authentification** : Inscription, connexion, gestion des tokens.
 - **Module OCR** : Extraction de texte depuis images et PDF avec detection de la mise en page.
@@ -122,9 +177,9 @@ Les besoins fonctionnels identifies pour le systeme sont les suivants :
 | BNF02 | Securite | Authentification par token, controle d'acces RBAC, protection CORS, protection CSRF. |
 | BNF03 | Ergonomie | Interface intuitive et responsive, editeur de type Word familier aux utilisateurs. |
 | BNF04 | Scalabilite | Architecture modulaire permettant l'ajout de nouvelles fonctionnalites. |
-| BNF05 | Portabilite | Deploiement containerise avec Docker, compatible multi-environnement (developpement, production). |
+| BNF05 | Portabilite | Deploiement containerise avec Docker sur Azure Container Apps (backend) et Vercel (frontend), compatible multi-environnement (developpement, production). |
 | BNF06 | Maintenabilite | Separation frontend/backend, code structure en couches, API documentee (Swagger). |
-| BNF07 | Disponibilite | Base de donnees PostgreSQL hebergee en cloud (Neon) assurant la persistance. |
+| BNF07 | Disponibilite | Base de donnees PostgreSQL hebergee en cloud (Neon), backend deploye sur Azure Container Apps, frontend sur Vercel, assurant la haute disponibilite. |
 | BNF08 | Reactivite | Mecanisme de polling pour detecter les changements en quasi temps reel (intervalle adaptatif de 5s a 30s). |
 
 ## 6. Choix methodologique : Scrum

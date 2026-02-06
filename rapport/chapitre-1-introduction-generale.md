@@ -28,6 +28,8 @@ Le projet vise a developper un systeme de gestion documentaire complet repondant
 
 - **Tracabilite et audit** : Enregistrer un journal d'audit complet de toutes les actions effectuees sur les documents (consultation, modification, partage, export).
 
+- **Deploiement cloud** : Deployer l'application sur une infrastructure cloud moderne avec Azure Container Apps pour le backend, Vercel pour le frontend, et Neon Cloud pour la base de donnees PostgreSQL, avec un pipeline CI/CD via GitHub Actions.
+
 ## 4. Methodologie adoptee : Scrum
 
 Pour mener a bien ce projet, la methodologie agile **Scrum** a ete adoptee. Ce choix se justifie par la nature iterative et incrementale du developpement, qui permet de livrer des fonctionnalites utilisables a la fin de chaque sprint et d'integrer les retours de maniere continue.

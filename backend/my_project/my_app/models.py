@@ -204,4 +204,4 @@ class AuditLog(models.Model):
 
 class UserProfile(models.Model):
 	user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
-	avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+	avatar = models.TextField(blank=True, null=True)  # base64 data URI

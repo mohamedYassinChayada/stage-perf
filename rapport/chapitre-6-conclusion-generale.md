@@ -33,7 +33,7 @@ pie title Repartition des fonctionnalites par sprint
 | Lignes de code backend (views.py) | ~2 500 lignes |
 | Composants reutilisables | Snackbar, UserMenu, WordLikeEditor, Autocomplete |
 | Systeme de cache | PageCacheContext avec TTL de 5 minutes (5 pages cachees) |
-| Technologies integrees | Django 5.2, React 19, EasyOCR, TinyMCE, PostgreSQL, Docker |
+| Technologies integrees | Django 5.2, React 19, EasyOCR, TinyMCE, PostgreSQL, Docker, Azure Container Apps, Vercel |
 
 ## 2. Difficultes rencontrees
 
@@ -45,7 +45,7 @@ Au cours du developpement, plusieurs difficultes techniques ont ete rencontrees 
 
 - **Recherche plein texte** : La configuration de l'index tsvector de PostgreSQL et la gestion du fallback pour les environnements sans support natif ont demande une comprehension approfondie des mecanismes de recherche de PostgreSQL.
 
-- **Configuration Docker** : La separation en deux conteneurs (frontend et backend) avec la gestion des volumes pour les fichiers media et la configuration multi-environnement (developpement et production) a necessite plusieurs iterations.
+- **Configuration Docker et deploiement cloud** : La conteneurisation avec Docker et Docker Compose pour le developpement local, puis le deploiement sur Azure Container Apps (backend) et Vercel (frontend) ont necessite plusieurs iterations. La configuration du pipeline CI/CD via GitHub Actions, la gestion des secrets (tokens Azure, variables d'environnement) et la mise en place du CORS entre le frontend Vercel et le backend Azure ont represente des defis techniques notables.
 
 - **Connexion a la base de donnees** : L'utilisation de Neon PostgreSQL (cloud) a necessite l'optimisation des parametres de connexion pour reduire la latence et gerer correctement les variables d'environnement via python-dotenv.
 
@@ -77,8 +77,10 @@ mindmap
       Variables CSS et theming
     DevOps
       Docker et Docker Compose
+      Azure Container Apps
+      Vercel deploiement frontend
+      GitHub Actions CI/CD
       Multi-environnement
-      Deploiement cloud
     Methodologie
       Scrum
       Gestion de sprints
@@ -93,7 +95,7 @@ mindmap
 
 - **Traitement d'images et OCR** : Comprehension des techniques de preprocessing d'images (CLAHE, flou gaussien, redimensionnement), utilisation d'EasyOCR pour l'extraction de texte avec detection de positions.
 
-- **Conteneurisation** : Maitrise de Docker et Docker Compose pour le deploiement multi-services, gestion des volumes et des variables d'environnement.
+- **Conteneurisation et deploiement cloud** : Maitrise de Docker et Docker Compose pour le developpement local. Deploiement du backend sur Azure Container Apps (via GitHub Container Registry et GitHub Actions) et du frontend sur Vercel. Configuration des pipelines CI/CD pour le deploiement automatique, gestion des variables d'environnement et des secrets dans les environnements cloud.
 
 - **Methodologie Scrum** : Pratique du decoupage en sprints, redaction de user stories, gestion du product backlog et revues de sprint.
 
@@ -117,4 +119,4 @@ Plusieurs pistes d'amelioration et d'evolution ont ete identifiees pour enrichir
 
 ---
 
-*Le present projet de stage a permis de developper un systeme de gestion documentaire fonctionnel et complet, repondant aux objectifs fixes. L'adoption de la methodologie Scrum a structure le travail en trois sprints coherents, chacun aboutissant a un ensemble de fonctionnalites operationnelles. Les technologies modernes utilisees (Django, React, PostgreSQL, EasyOCR, Docker) constituent une base solide pour les evolutions futures du systeme.*
+*Le present projet de stage a permis de developper un systeme de gestion documentaire fonctionnel et complet, repondant aux objectifs fixes. L'adoption de la methodologie Scrum a structure le travail en trois sprints coherents, chacun aboutissant a un ensemble de fonctionnalites operationnelles. Les technologies modernes utilisees (Django, React, PostgreSQL, EasyOCR, Docker) et l'infrastructure de deploiement cloud (Azure Container Apps, Vercel, Neon, GitHub Actions) constituent une base solide pour les evolutions futures du systeme.*
