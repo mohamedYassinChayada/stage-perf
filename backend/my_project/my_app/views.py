@@ -439,9 +439,13 @@ class DocumentListCreateView(generics.ListCreateAPIView):
         # Base queryset with select_related for owner
         base_qs = Document.objects.select_related('owner').prefetch_related('attachments')
 
-        # Admin users see all documents
+        # Admin users see all documents, with optional owner filter
         if user.is_staff or user.is_superuser:
-            return base_qs.order_by('-created_at')
+            qs = base_qs
+            owner_filter = self.request.query_params.get('owner')
+            if owner_filter:
+                qs = qs.filter(owner__username__icontains=owner_filter)
+            return qs.order_by('-created_at')
 
         # Get direct user ACLs
         user_acls = ACL.objects.filter(
@@ -1319,7 +1323,7 @@ def document_shares_list(request, pk: int):
     if not request.user or not request.user.is_authenticated:
         return Response({'error': 'auth required'}, status=401)
     document = get_object_or_404(Document, pk=pk)
-    if document.owner_id != request.user.id:
+    if document.owner_id != request.user.id and not (request.user.is_staff or request.user.is_superuser):
         return Response({'error': 'forbidden'}, status=403)
     items = ACL.objects.filter(document=document).values('id', 'subject_type', 'subject_id', 'role', 'expires_at', 'created_at')
     # Attach username if subject_type is user
@@ -1359,7 +1363,7 @@ def share_update_delete(request, share_id: str):
         return Response({'error': 'auth required'}, status=401)
     acl = get_object_or_404(ACL, id=share_id)
     document = acl.document
-    if document.owner_id != request.user.id:
+    if document.owner_id != request.user.id and not (request.user.is_staff or request.user.is_superuser):
         return Response({'error': 'forbidden'}, status=403)
 
     if request.method == 'DELETE':
@@ -1847,12 +1851,9 @@ def attachment_download(request, attachment_id):
 def groups_list_create(request):
     """List all groups or create a new group."""
     if request.method == 'GET':
-        # Admin users see all groups, regular users see only their groups
-        if request.user.is_staff or request.user.is_superuser:
-            groups = Group.objects.all()
-        else:
-            groups = request.user.groups.all()
-        
+        # All users (including admin) see only groups they belong to
+        groups = request.user.groups.all()
+
         serializer = GroupSerializer(groups, many=True, context={'request': request})
         return Response(serializer.data)
     
@@ -2415,11 +2416,8 @@ def group_documents(request, group_id):
 @permission_classes([IsAuthenticated])
 def groups_with_documents(request):
     """Get all user's groups with document counts for each."""
-    # Get user's groups (or all groups for admin)
-    if request.user.is_staff or request.user.is_superuser:
-        groups = Group.objects.all()
-    else:
-        groups = request.user.groups.all()
+    # All users see only groups they belong to
+    groups = request.user.groups.all()
 
     result = []
     for group in groups:
@@ -3100,10 +3098,12 @@ def admin_acl_list(request):
     if denied:
         return denied
 
-    qs = ACL.objects.all().select_related('document', 'created_by')
+    qs = ACL.objects.all().select_related('document', 'created_by').order_by('-created_at')
     document_id = request.query_params.get('document_id')
     user_id = request.query_params.get('user_id')
     subject_type = request.query_params.get('subject_type')
+    role = request.query_params.get('role')
+    search = request.query_params.get('search')
 
     if document_id:
         qs = qs.filter(document_id=document_id)
@@ -3111,12 +3111,15 @@ def admin_acl_list(request):
         qs = qs.filter(subject_type='user', subject_id=str(user_id))
     if subject_type:
         qs = qs.filter(subject_type=subject_type)
+    if role:
+        qs = qs.filter(role=role)
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
 
-    result = []
-    for acl in qs[:100]:
+    # Build enriched results first (for search filtering)
+    all_results = []
+    for acl in qs:
         data = ACLSerializer(acl).data
         data['document_title'] = acl.document.title if acl.document else None
         if acl.subject_type == 'user':
@@ -3133,9 +3136,30 @@ def admin_acl_list(request):
                 data['subject_name'] = f'Group #{acl.subject_id}'
         else:
             data['subject_name'] = acl.subject_id
-        result.append(data)
+        all_results.append(data)
 
-    return Response(result)
+    # Apply text search across subject_name and document_title
+    if search:
+        search_lower = search.lower()
+        all_results = [r for r in all_results if
+            search_lower in (r.get('subject_name') or '').lower() or
+            search_lower in (r.get('document_title') or '').lower()]
+
+    # Pagination
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 20))
+    total = len(all_results)
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_results = all_results[start:end]
+
+    return Response({
+        'results': page_results,
+        'count': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': (total + page_size - 1) // page_size if total > 0 else 1,
+    })
 
 
 @swagger_auto_schema(
@@ -3243,3 +3267,33 @@ def admin_dashboard_stats(request):
         'recent_registrations': recent_registrations,
         'recent_activity': recent_activity,
     })
+
+
+@swagger_auto_schema(method='get', tags=['Admin'])
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_groups_list(request):
+    """List all groups with owner info for admin dashboard."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    groups = Group.objects.all()
+    result = []
+    for group in groups:
+        owner_username = None
+        try:
+            ownership = group.ownership
+            owner_username = ownership.owner.username
+        except GroupOwnership.DoesNotExist:
+            pass
+
+        result.append({
+            'id': group.id,
+            'name': group.name,
+            'member_count': group.user_set.count(),
+            'owner_username': owner_username,
+        })
+
+    return Response(result)

@@ -104,4 +104,5 @@ urlpatterns = [
     path('admin/acl/', views.admin_acl_list, name='admin_acl_list'),
     path('admin/acl/<uuid:acl_id>/', views.admin_acl_detail, name='admin_acl_detail'),
     path('admin/dashboard/stats/', views.admin_dashboard_stats, name='admin_dashboard_stats'),
+    path('admin/groups/', views.admin_groups_list, name='admin_groups_list'),
 ] 

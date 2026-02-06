@@ -177,6 +177,21 @@ export interface DashboardStats {
   recent_activity: AuditLogEntry[];
 }
 
+export interface AdminGroup {
+  id: number;
+  name: string;
+  member_count: number;
+  owner_username: string | null;
+}
+
+export interface PaginatedACLResponse {
+  results: AdminACL[];
+  count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export interface UserProfile {
   id: number;
   username: string;
@@ -240,9 +255,11 @@ export const getAllDocuments = async (): Promise<Document[]> => {
 /**
  * Get documents with pagination info
  */
-export const getDocumentsPaginated = async (page: number = 1, _pageSize: number = 10): Promise<PaginatedResponse<Document>> => {
+export const getDocumentsPaginated = async (page: number = 1, _pageSize: number = 10, owner?: string): Promise<PaginatedResponse<Document>> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/documents/?page=${page}`, {
+    const params = new URLSearchParams({ page: String(page) });
+    if (owner) params.set('owner', owner);
+    const response = await fetch(`${API_BASE_URL}/documents/?${params}`, {
       method: 'GET',
       headers: authHeaders(),
     });
@@ -1360,11 +1377,15 @@ export const adminResendVerification = async (userId: number): Promise<{ message
   return res.json();
 };
 
-export const adminGetACLs = async (filters?: { document_id?: number; user_id?: number; subject_type?: string }): Promise<AdminACL[]> => {
+export const adminGetACLs = async (filters?: { document_id?: number; user_id?: number; subject_type?: string; role?: string; search?: string; page?: number; page_size?: number }): Promise<PaginatedACLResponse> => {
   const params = new URLSearchParams();
   if (filters?.document_id) params.set('document_id', String(filters.document_id));
   if (filters?.user_id) params.set('user_id', String(filters.user_id));
   if (filters?.subject_type) params.set('subject_type', filters.subject_type);
+  if (filters?.role) params.set('role', filters.role);
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.page) params.set('page', String(filters.page));
+  if (filters?.page_size) params.set('page_size', String(filters.page_size));
   const res = await fetch(`${API_BASE_URL}/admin/acl/?${params}`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to load admin ACLs');
   return res.json();
@@ -1391,5 +1412,11 @@ export const adminDeleteACL = async (aclId: string): Promise<void> => {
 export const adminGetDashboardStats = async (): Promise<DashboardStats> => {
   const res = await fetch(`${API_BASE_URL}/admin/dashboard/stats/`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Failed to load dashboard stats');
+  return res.json();
+};
+
+export const adminGetGroups = async (): Promise<AdminGroup[]> => {
+  const res = await fetch(`${API_BASE_URL}/admin/groups/`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Failed to load admin groups');
   return res.json();
 };

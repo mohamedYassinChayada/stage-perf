@@ -140,6 +140,13 @@
   flex-wrap: wrap;
 }
 
+.owner-filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;

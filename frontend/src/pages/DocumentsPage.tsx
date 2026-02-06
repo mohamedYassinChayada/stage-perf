@@ -14,7 +14,8 @@ import {
   setDocumentCollections,
   searchStandard,
   searchDeep,
-  searchByQRFile
+  searchByQRFile,
+  me
 } from '../services/documentService';
 import type { Document, Label, Collection } from '../services/documentService';
 import { Link, useNavigate } from 'react-router-dom';
@@ -58,6 +59,11 @@ const DocumentsPage: React.FC = () => {
   // Ownership filter: 'all' | 'owned' | 'shared'
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'shared'>('all');
 
+  // Admin-specific state
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState('');
+  const [appliedOwnerFilter, setAppliedOwnerFilter] = useState('');
+
   // QR Camera Scanner state
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -90,8 +96,8 @@ const DocumentsPage: React.FC = () => {
 
   // Load a specific page of documents
   const loadPage = useCallback(async (page: number, forceRefresh = false): Promise<void> => {
-    // Check in-memory cache first
-    if (!forceRefresh && pageCache.has(page)) {
+    // Check in-memory cache first (skip cache when owner filter is active)
+    if (!forceRefresh && !appliedOwnerFilter && pageCache.has(page)) {
       setCurrentPage(page);
       setLoading(false);
       return;
@@ -100,7 +106,7 @@ const DocumentsPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getDocumentsPaginated(page, DOCS_PER_PAGE);
+      const response = await getDocumentsPaginated(page, DOCS_PER_PAGE, appliedOwnerFilter || undefined);
       const pages = Math.ceil(response.count / DOCS_PER_PAGE);
 
       setPageCacheState(prev => {
@@ -116,7 +122,7 @@ const DocumentsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pageCache]);
+  }, [pageCache, appliedOwnerFilter]);
 
   const loadLabels = async (): Promise<void> => {
     try {
@@ -135,6 +141,16 @@ const DocumentsPage: React.FC = () => {
       // ignore
     }
   };
+
+  // Check if user is admin
+  useEffect(() => {
+    (async () => {
+      try {
+        const info = await me();
+        if (info?.is_admin) setIsAdmin(true);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   // Restore from context cache on mount, or fetch fresh
   useEffect(() => {
@@ -335,6 +351,20 @@ const DocumentsPage: React.FC = () => {
     setIsSearchMode(false);
     setSearchResults([]);
   };
+
+  const applyOwnerFilter = (): void => {
+    setAppliedOwnerFilter(ownerFilter.trim());
+    setPageCacheState(new Map());
+    clearDocumentsCache();
+  };
+
+  // Re-fetch when owner filter changes
+  useEffect(() => {
+    if (appliedOwnerFilter !== undefined) {
+      loadPage(1, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedOwnerFilter]);
 
   // QR Camera Scanner Functions
   const startCameraScanner = async (): Promise<void> => {
@@ -655,6 +685,33 @@ const DocumentsPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Admin Owner Filter */}
+          {isAdmin && (
+            <div className="filter-row">
+              <span className="filter-label">Owner:</span>
+              <div className="owner-filter-row">
+                <input
+                  type="text"
+                  placeholder="Filter by owner username..."
+                  value={ownerFilter}
+                  onChange={e => setOwnerFilter(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && applyOwnerFilter()}
+                  className="search-input"
+                  style={{ maxWidth: 260 }}
+                />
+                <button className="btn btn-light" onClick={applyOwnerFilter}>Filter</button>
+                {appliedOwnerFilter && (
+                  <button className="btn btn-ghost" onClick={() => { setOwnerFilter(''); setAppliedOwnerFilter(''); }}>Clear</button>
+                )}
+                {appliedOwnerFilter && (
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    Showing documents by "{appliedOwnerFilter}"
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
