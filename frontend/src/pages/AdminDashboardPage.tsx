@@ -69,6 +69,10 @@ const DashboardTab: React.FC = () => {
           <div className="stat-value">{stats.total_acls}</div>
           <div className="stat-label">Total ACLs</div>
         </div>
+        <div className="stat-card">
+          <div className="stat-value">{stats.total_groups}</div>
+          <div className="stat-label">Total Groups</div>
+        </div>
         <div className="stat-card highlight">
           <div className="stat-value">{stats.users_by_status?.pending_approval || 0}</div>
           <div className="stat-label">Pending Approval</div>
@@ -310,6 +314,7 @@ const ACLTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editingACL, setEditingACL] = useState<AdminACL | null>(null);
   const [editRole, setEditRole] = useState('');
+  const [error, setError] = useState('');
 
   // Filters
   const [roleFilter, setRoleFilter] = useState<string>('');
@@ -320,6 +325,7 @@ const ACLTab: React.FC = () => {
 
   const fetchACLs = useCallback(async (page = 1) => {
     setLoading(true);
+    setError('');
     try {
       const filters: Record<string, string | number> = { page, page_size: pageSize };
       if (roleFilter) filters.role = roleFilter;
@@ -328,8 +334,10 @@ const ACLTab: React.FC = () => {
       const data = await adminGetACLs(filters as Parameters<typeof adminGetACLs>[0]);
       setAclData(data);
       setCurrentPage(page);
-    } catch {
-      showSnackbar('Failed to load ACLs', 'error');
+    } catch (e) {
+      const msg = (e as Error).message || 'Failed to load ACLs';
+      setError(msg);
+      showSnackbar(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -407,6 +415,8 @@ const ACLTab: React.FC = () => {
 
       {loading ? (
         <div className="admin-loading">Loading ACLs...</div>
+      ) : error ? (
+        <div className="admin-loading" style={{ color: 'var(--danger, #e74c3c)' }}>Error: {error}</div>
       ) : (
         <>
           <div className="admin-table-container">
@@ -509,14 +519,17 @@ const GroupsTab: React.FC = () => {
   const [groups, setGroups] = useState<AdminGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
         const data = await adminGetGroups();
         setGroups(data);
-      } catch {
-        showSnackbar('Failed to load groups', 'error');
+      } catch (e) {
+        const msg = (e as Error).message || 'Failed to load groups';
+        setError(msg);
+        showSnackbar(msg, 'error');
       } finally {
         setLoading(false);
       }
@@ -531,6 +544,7 @@ const GroupsTab: React.FC = () => {
     : groups;
 
   if (loading) return <div className="admin-loading">Loading groups...</div>;
+  if (error) return <div className="admin-loading" style={{ color: 'var(--danger, #e74c3c)' }}>Error: {error}</div>;
 
   return (
     <div className="groups-admin-content">

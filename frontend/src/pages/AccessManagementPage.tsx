@@ -46,7 +46,7 @@ const AccessManagementPage: React.FC = () => {
         getDocument(id!),
         listShares(id!),
         listUsers(),
-        listGroups(),
+        listGroups('member'),
         getDocumentShareLinks(id!).catch(() => [])
       ]);
       setDoc(d);

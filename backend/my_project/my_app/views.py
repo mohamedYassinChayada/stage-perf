@@ -1851,8 +1851,15 @@ def attachment_download(request, attachment_id):
 def groups_list_create(request):
     """List all groups or create a new group."""
     if request.method == 'GET':
-        # All users (including admin) see only groups they belong to
-        groups = request.user.groups.all()
+        scope = request.query_params.get('scope', 'owned')
+        if scope == 'all' and (request.user.is_staff or request.user.is_superuser):
+            groups = Group.objects.all()
+        elif scope == 'member':
+            groups = request.user.groups.all()
+        else:
+            # Default: only groups the user owns
+            owned_group_ids = GroupOwnership.objects.filter(owner=request.user).values_list('group_id', flat=True)
+            groups = Group.objects.filter(id__in=owned_group_ids)
 
         serializer = GroupSerializer(groups, many=True, context={'request': request})
         return Response(serializer.data)
@@ -3234,6 +3241,7 @@ def admin_dashboard_stats(request):
 
     total_documents = Document.objects.count()
     total_acls = ACL.objects.count()
+    total_groups = Group.objects.count()
 
     recent_registrations = []
     for u in User.objects.order_by('-date_joined')[:10]:
@@ -3264,6 +3272,7 @@ def admin_dashboard_stats(request):
         'users_by_status': users_by_status,
         'total_documents': total_documents,
         'total_acls': total_acls,
+        'total_groups': total_groups,
         'recent_registrations': recent_registrations,
         'recent_activity': recent_activity,
     })

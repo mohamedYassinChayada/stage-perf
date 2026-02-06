@@ -173,6 +173,7 @@ export interface DashboardStats {
   users_by_status: Record<string, number>;
   total_documents: number;
   total_acls: number;
+  total_groups: number;
   recent_registrations: AdminUser[];
   recent_activity: AuditLogEntry[];
 }
@@ -688,9 +689,10 @@ export const formatDate = (dateString: string): string => {
 
 // ============ GROUP MANAGEMENT ============
 
-export const listGroups = async (): Promise<Group[]> => {
+export const listGroups = async (scope?: 'owned' | 'member' | 'all'): Promise<Group[]> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/groups/`, {
+    const params = scope ? `?scope=${scope}` : '';
+    const response = await fetch(`${API_BASE_URL}/groups/${params}`, {
       method: 'GET',
       headers: authHeaders(),
     });
