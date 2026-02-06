@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "chapitre-2-etude-prealable.md",
+                "file": "chapitre-3-sprint1-authentification.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "chapitre-2-etude-prealable"
+              "title": "chapitre-3-sprint1-authentification"
             }
           }
         ]
@@ -171,6 +171,8 @@
   },
   "active": "4e759ca11d723dfb",
   "lastOpenFiles": [
+    "chapitre-2-etude-prealable.md",
+    "chapitre-1-introduction-generale.md",
     "chapitre-1-introduction-generale.md.tmp.44728.1770376727104",
     "chapitre-5-sprint3-partage-recherche.md.tmp.44728.1770376719838",
     "chapitre-6-conclusion-generale.md.tmp.44728.1770376688574",
@@ -181,12 +183,9 @@
     "chapitre-3-sprint1-authentification.md.tmp.44728.1770376651397",
     "chapitre-2-etude-prealable.md.tmp.44728.1770376644599",
     "chapitre-2-etude-prealable.md.tmp.44728.1770376627348",
-    "chapitre-2-etude-prealable.md.tmp.44728.1770376622110",
     "chapitre-3-sprint1-authentification.md",
     "chapitre-5-sprint3-partage-recherche.md",
     "chapitre-6-conclusion-generale.md",
-    "chapitre-4-sprint2-ocr-editeur.md",
-    "chapitre-2-etude-prealable.md",
-    "chapitre-1-introduction-generale.md"
+    "chapitre-4-sprint2-ocr-editeur.md"
   ]
 }

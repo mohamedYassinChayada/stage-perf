@@ -239,6 +239,11 @@ CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://stage-perf.ver
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 
+# Brevo (Sendinblue) Email Configuration
+BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
+BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', 'noreply@stage-perf.com')
+BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', 'Stage Perf')
+
 # EasyOCR Configuration
 EASYOCR_LANGUAGES = ['en']  # English by default, can add more languages like ['en', 'fr', 'de']
 EASYOCR_GPU = False  # Set to True if you have a compatible GPU and want to use it

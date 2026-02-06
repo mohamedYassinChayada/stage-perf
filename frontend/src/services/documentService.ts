@@ -125,6 +125,56 @@ export interface MeResponse {
   username?: string;
   email?: string;
   avatar_url?: string | null;
+  is_admin?: boolean;
+  email_verified?: boolean;
+  approval_status?: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  notification_type: string;
+  title: string;
+  message: string;
+  document?: number;
+  document_info?: { id: number; title: string } | null;
+  actor?: number;
+  actor_info?: { id: number; username: string } | null;
+  read: boolean;
+  created_at: string;
+}
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  is_active: boolean;
+  is_superuser: boolean;
+  date_joined: string;
+  email_verified: boolean;
+  approval_status: string;
+  rejected_reason?: string | null;
+  profile_created_at?: string | null;
+}
+
+export interface AdminACL {
+  id: string;
+  document: number;
+  document_title?: string;
+  subject_type: string;
+  subject_id: string;
+  subject_name?: string;
+  role: string;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+export interface DashboardStats {
+  total_users: number;
+  users_by_status: Record<string, number>;
+  total_documents: number;
+  total_acls: number;
+  recent_registrations: AdminUser[];
+  recent_activity: AuditLogEntry[];
 }
 
 export interface UserProfile {
@@ -1198,4 +1248,148 @@ export const deleteDocumentACL = async (documentId: number, aclId: string): Prom
     console.error('Error deleting document ACL:', error);
     throw error;
   }
+};
+
+// --- Email Verification ---
+
+export const verifyEmail = async (code: string): Promise<{ message: string; approval_status: string }> => {
+  const res = await fetch(`${API_BASE_URL}/auth/verify-email/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Verification failed');
+  }
+  return res.json();
+};
+
+export const resendVerificationCode = async (): Promise<{ message: string }> => {
+  const res = await fetch(`${API_BASE_URL}/auth/resend-verification/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to resend verification code');
+  return res.json();
+};
+
+// --- Notifications ---
+
+export const getNotifications = async (unreadOnly = false, page = 1): Promise<{ count: number; results: NotificationItem[] }> => {
+  const params = new URLSearchParams({ page: String(page) });
+  if (unreadOnly) params.set('unread', 'true');
+  const res = await fetch(`${API_BASE_URL}/notifications/?${params}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Failed to load notifications');
+  return res.json();
+};
+
+export const getUnreadCount = async (): Promise<{ count: number }> => {
+  const res = await fetch(`${API_BASE_URL}/notifications/unread-count/`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Failed to get unread count');
+  return res.json();
+};
+
+export const markNotificationRead = async (notificationId: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to mark notification as read');
+};
+
+export const markAllNotificationsRead = async (): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/notifications/read-all/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to mark all as read');
+};
+
+export const pollNotifications = async (since: string): Promise<{ notifications: NotificationItem[]; server_time: string }> => {
+  const res = await fetch(`${API_BASE_URL}/notifications/poll/?since=${encodeURIComponent(since)}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to poll notifications');
+  return res.json();
+};
+
+// --- Admin ---
+
+export const adminGetUsers = async (statusFilter?: string): Promise<AdminUser[]> => {
+  const params = statusFilter ? `?status=${statusFilter}` : '';
+  const res = await fetch(`${API_BASE_URL}/admin/users/${params}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Failed to load admin users');
+  return res.json();
+};
+
+export const adminApproveUser = async (userId: number): Promise<{ message: string }> => {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/approve/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to approve user');
+  return res.json();
+};
+
+export const adminRejectUser = async (userId: number, reason: string): Promise<{ message: string }> => {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/reject/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error('Failed to reject user');
+  return res.json();
+};
+
+export const adminDeleteUser = async (userId: number): Promise<{ message: string }> => {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/delete/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete user');
+  return res.json();
+};
+
+export const adminResendVerification = async (userId: number): Promise<{ message: string }> => {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/resend-verification/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to resend verification');
+  return res.json();
+};
+
+export const adminGetACLs = async (filters?: { document_id?: number; user_id?: number; subject_type?: string }): Promise<AdminACL[]> => {
+  const params = new URLSearchParams();
+  if (filters?.document_id) params.set('document_id', String(filters.document_id));
+  if (filters?.user_id) params.set('user_id', String(filters.user_id));
+  if (filters?.subject_type) params.set('subject_type', filters.subject_type);
+  const res = await fetch(`${API_BASE_URL}/admin/acl/?${params}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Failed to load admin ACLs');
+  return res.json();
+};
+
+export const adminUpdateACL = async (aclId: string, data: { role?: string; expires_at?: string | null }): Promise<AdminACL> => {
+  const res = await fetch(`${API_BASE_URL}/admin/acl/${aclId}/`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update ACL');
+  return res.json();
+};
+
+export const adminDeleteACL = async (aclId: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/admin/acl/${aclId}/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete ACL');
+};
+
+export const adminGetDashboardStats = async (): Promise<DashboardStats> => {
+  const res = await fetch(`${API_BASE_URL}/admin/dashboard/stats/`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Failed to load dashboard stats');
+  return res.json();
 };

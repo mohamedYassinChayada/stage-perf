@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-from .models import Document, QRLink, ACL, Attachment, Label, Collection, DocumentLabel, DocumentCollection, ShareLink, DocumentVersion, AuditLog, Action, UserProfile, GroupOwnership
+from .models import Document, QRLink, ACL, Attachment, Label, Collection, DocumentLabel, DocumentCollection, ShareLink, DocumentVersion, AuditLog, Action, UserProfile, GroupOwnership, Notification, NotificationType, ApprovalStatus
 from django.contrib.auth.models import Group
 from .serializers import (
     OCRUploadSerializer, OCRResponseSerializer, OCRErrorSerializer,
@@ -693,10 +693,10 @@ class DocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
         document = self.get_object()
         old_html = document.html
         old_title = document.title
-        
+
         # Save the updated document
         updated_document = serializer.save()
-        
+
         # Create new version if content changed
         if old_html != updated_document.html:
             new_version_no = updated_document.current_version_no + 1
@@ -710,13 +710,20 @@ class DocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
             )
             updated_document.current_version_no = new_version_no
             updated_document.save()
-            
+
             # Log the edit
             log_document_edit(self.request, updated_document, version_no=new_version_no, changes={
                 'title_changed': old_title != updated_document.title,
                 'content_changed': True,
                 'method': 'API_UPDATE'
             })
+
+            # Notify document owner
+            try:
+                from .utils.notifications import notify_document_edited
+                notify_document_edited(updated_document, self.request.user)
+            except Exception:
+                pass
     
     @swagger_auto_schema(
         operation_description="Delete a document and its associated files",
@@ -731,6 +738,12 @@ class DocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
         tags=['Documents']
     )
     def delete(self, request, *args, **kwargs):
+        document = self.get_object()
+        try:
+            from .utils.notifications import notify_document_deleted
+            notify_document_deleted(document, request.user)
+        except Exception:
+            pass
         return super().delete(request, *args, **kwargs)
 
 @swagger_auto_schema(
@@ -847,16 +860,48 @@ def resolve_qr(request, code: str):
 @csrf_exempt
 def register(request):
     from django.contrib.auth.models import User
+    from .utils.email_service import generate_verification_code, send_verification_email
     username = request.data.get('username')
     password = request.data.get('password')
     email = request.data.get('email')
     if not username or not password:
         return Response({'error': 'username and password are required'}, status=400)
+    if not email:
+        return Response({'error': 'email is required'}, status=400)
     if User.objects.filter(username=username).exists():
         return Response({'error': 'username already exists'}, status=400)
-    user = User.objects.create_user(username=username, password=password, email=email or '')
+    if User.objects.filter(email=email).exists():
+        return Response({'error': 'email already exists'}, status=400)
+    user = User.objects.create_user(username=username, password=password, email=email)
     token, _ = Token.objects.get_or_create(user=user)
-    return Response({'id': user.id, 'username': user.username, 'email': user.email, 'token': token.key}, status=201)
+
+    # Create profile with pending verification
+    code = generate_verification_code()
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile.approval_status = ApprovalStatus.PENDING_VERIFICATION
+    profile.email_verified = False
+    profile.email_verification_code = code
+    profile.email_verification_expires = timezone.now() + timezone.timedelta(minutes=15)
+    profile.save()
+
+    # Send verification email
+    send_verification_email(user, code)
+
+    # Notify admins of new registration
+    try:
+        from .utils.notifications import notify_new_registration
+        notify_new_registration(user)
+    except Exception:
+        pass
+
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'token': token.key,
+        'needs_verification': True,
+        'approval_status': profile.approval_status,
+    }, status=201)
 
 
 @swagger_auto_schema(
@@ -870,10 +915,14 @@ def me(request):
     if not request.user or not request.user.is_authenticated:
         return Response({'authenticated': False}, status=200)
     avatar_url = None
+    email_verified = True
+    approval_status = 'approved'
     try:
         profile = request.user.profile
         if profile.avatar:
             avatar_url = profile.avatar
+        email_verified = profile.email_verified
+        approval_status = profile.approval_status
     except UserProfile.DoesNotExist:
         pass
     return Response({
@@ -881,7 +930,10 @@ def me(request):
         'id': request.user.id,
         'username': request.user.username,
         'email': request.user.email,
-        'avatar_url': avatar_url
+        'avatar_url': avatar_url,
+        'is_admin': request.user.is_superuser,
+        'email_verified': email_verified,
+        'approval_status': approval_status,
     }, status=200)
 
 
@@ -908,7 +960,19 @@ def login_view(request):
         return Response({'error': 'invalid credentials'}, status=400)
     login(request, user)
     token, _ = Token.objects.get_or_create(user=user)
-    return Response({'id': user.id, 'username': user.username, 'email': user.email, 'token': token.key}, status=200)
+    approval_status = 'approved'
+    try:
+        approval_status = user.profile.approval_status
+    except UserProfile.DoesNotExist:
+        pass
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'token': token.key,
+        'approval_status': approval_status,
+        'is_active': user.is_active,
+    }, status=200)
 
 
 @swagger_auto_schema(method='post', tags=['Auth'])
@@ -921,6 +985,86 @@ def logout_view(request):
             pass
         logout(request)
     return Response({'ok': True}, status=200)
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Verify email with 6-digit code",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'code': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['code']
+    ),
+    tags=['Auth']
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def verify_email(request):
+    code = request.data.get('code')
+    if not code:
+        return Response({'error': 'code is required'}, status=400)
+    try:
+        profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return Response({'error': 'profile not found'}, status=404)
+
+    if profile.email_verified:
+        return Response({'error': 'email already verified'}, status=400)
+
+    if profile.email_verification_code != code:
+        return Response({'error': 'invalid verification code'}, status=400)
+
+    if profile.email_verification_expires and timezone.now() > profile.email_verification_expires:
+        return Response({'error': 'verification code has expired'}, status=400)
+
+    profile.email_verified = True
+    profile.approval_status = ApprovalStatus.PENDING_APPROVAL
+    profile.email_verification_code = None
+    profile.email_verification_expires = None
+    profile.save()
+
+    # Notify admins
+    try:
+        from .utils.notifications import notify_email_verified
+        notify_email_verified(request.user)
+    except Exception:
+        pass
+
+    return Response({
+        'message': 'Email verified successfully',
+        'approval_status': profile.approval_status,
+    }, status=200)
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Resend email verification code",
+    tags=['Auth']
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def resend_verification(request):
+    from .utils.email_service import generate_verification_code, send_verification_email
+    try:
+        profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return Response({'error': 'profile not found'}, status=404)
+
+    if profile.email_verified:
+        return Response({'error': 'email already verified'}, status=400)
+
+    if not request.user.email:
+        return Response({'error': 'no email address on account'}, status=400)
+
+    code = generate_verification_code()
+    profile.email_verification_code = code
+    profile.email_verification_expires = timezone.now() + timezone.timedelta(minutes=15)
+    profile.save(update_fields=['email_verification_code', 'email_verification_expires'])
+
+    send_verification_email(request.user, code)
+    return Response({'message': 'Verification code resent'}, status=200)
 
 
 @swagger_auto_schema(method='get', tags=['Auth'])
@@ -1153,7 +1297,13 @@ def document_share_create(request, pk: int):
                 shared_with_name = f"Group #{subject_id}"
         
         log_document_share(request, document, shared_with=shared_with_name, role=role)
-        
+
+        try:
+            from .utils.notifications import notify_acl_granted
+            notify_acl_granted(acl, request.user)
+        except Exception:
+            pass
+
         return Response({
             'id': str(acl.id),
             'message': 'Document shared successfully',
@@ -1213,6 +1363,11 @@ def share_update_delete(request, share_id: str):
         return Response({'error': 'forbidden'}, status=403)
 
     if request.method == 'DELETE':
+        try:
+            from .utils.notifications import notify_acl_revoked
+            notify_acl_revoked(acl, request.user)
+        except Exception:
+            pass
         log_access_revoked(request, document, revoked_from=f"{acl.subject_type}:{acl.subject_id}")
         acl.delete()
         return Response(status=204)
@@ -1222,8 +1377,15 @@ def share_update_delete(request, share_id: str):
         valid_roles = ['VIEWER', 'EDITOR', 'OWNER']
         if role not in valid_roles:
             return Response({'error': f'role must be one of {valid_roles}'}, status=400)
+        old_role = acl.role
         acl.role = role
         acl.save(update_fields=['role'])
+        if old_role != role:
+            try:
+                from .utils.notifications import notify_acl_changed
+                notify_acl_changed(acl, old_role, role, request.user)
+            except Exception:
+                pass
         return Response({
             'id': str(acl.id),
             'role': acl.role,
@@ -2406,10 +2568,17 @@ def document_acl_list_create(request, document_id):
         
         # Log the share action
         log_document_share(request, document, shared_with=subject_name, role=role)
-        
+
+        # Notify
+        try:
+            from .utils.notifications import notify_acl_granted
+            notify_acl_granted(acl, request.user)
+        except Exception:
+            pass
+
         acl_data = ACLSerializer(acl).data
         acl_data['subject_name'] = subject_name
-        
+
         return Response(acl_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
@@ -2447,6 +2616,11 @@ def document_acl_detail(request, document_id, acl_id):
         return Response({'error': 'Access denied. SHARE permission required.'}, status=status.HTTP_403_FORBIDDEN)
     
     if request.method == 'DELETE':
+        try:
+            from .utils.notifications import notify_acl_revoked
+            notify_acl_revoked(acl, request.user)
+        except Exception:
+            pass
         log_access_revoked(request, document, revoked_from=f"{acl.subject_type}:{acl.subject_id}")
         acl.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -2454,16 +2628,25 @@ def document_acl_detail(request, document_id, acl_id):
     elif request.method == 'PUT':
         role = request.data.get('role')
         expires_at = request.data.get('expires_at')
-        
+        old_role = acl.role
+
         if role:
             if role not in ['VIEWER', 'EDITOR', 'OWNER']:
                 return Response({'error': 'role must be VIEWER, EDITOR, or OWNER'}, status=status.HTTP_400_BAD_REQUEST)
             acl.role = role
-        
+
         if 'expires_at' in request.data:
             acl.expires_at = expires_at
-        
+
         acl.save()
+
+        if role and old_role != role:
+            try:
+                from .utils.notifications import notify_acl_changed
+                notify_acl_changed(acl, old_role, role, request.user)
+            except Exception:
+                pass
+
         return Response(ACLSerializer(acl).data)
 
 
@@ -2665,4 +2848,398 @@ def user_groups_events_poll(request):
     return Response({
         'has_changes': has_changes,
         'server_time': timezone.now().isoformat(),
+    })
+
+
+# --- Notification Endpoints ---
+
+@swagger_auto_schema(method='get', tags=['Notifications'])
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def notifications_list(request):
+    """List user's notifications, optionally filtered by ?unread=true."""
+    qs = Notification.objects.filter(recipient=request.user)
+    if request.query_params.get('unread') == 'true':
+        qs = qs.filter(read=False)
+    from .serializers import NotificationSerializer
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 20))
+    start = (page - 1) * page_size
+    end = start + page_size
+    total = qs.count()
+    items = qs[start:end]
+    return Response({
+        'count': total,
+        'results': NotificationSerializer(items, many=True).data,
+    })
+
+
+@swagger_auto_schema(method='get', tags=['Notifications'])
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def notifications_unread_count(request):
+    """Get count of unread notifications."""
+    count = Notification.objects.filter(recipient=request.user, read=False).count()
+    return Response({'count': count})
+
+
+@swagger_auto_schema(method='post', tags=['Notifications'])
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def notification_mark_read(request, notification_id):
+    """Mark a single notification as read."""
+    notif = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+    notif.read = True
+    notif.save(update_fields=['read'])
+    return Response({'ok': True})
+
+
+@swagger_auto_schema(method='post', tags=['Notifications'])
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def notifications_mark_all_read(request):
+    """Mark all notifications as read."""
+    Notification.objects.filter(recipient=request.user, read=False).update(read=True)
+    return Response({'ok': True})
+
+
+@swagger_auto_schema(method='get', tags=['Notifications'])
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def notifications_poll(request):
+    """Poll for new notifications since a given timestamp."""
+    since = request.query_params.get('since')
+    qs = Notification.objects.filter(recipient=request.user)
+    if since:
+        since_dt = parse_datetime(since)
+        if since_dt:
+            qs = qs.filter(created_at__gt=since_dt)
+    from .serializers import NotificationSerializer
+    return Response({
+        'notifications': NotificationSerializer(qs[:20], many=True).data,
+        'server_time': timezone.now().isoformat(),
+    })
+
+
+# --- Admin Endpoints ---
+
+def _require_admin(request):
+    if not request.user or not request.user.is_superuser:
+        return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
+    return None
+
+
+@swagger_auto_schema(method='get', tags=['Admin'])
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_users_list(request):
+    """List all users with their profiles. Filter by ?status=<approval_status>."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    status_filter = request.query_params.get('status')
+    users = User.objects.all().order_by('-date_joined')
+
+    result = []
+    for u in users:
+        profile_data = {}
+        try:
+            p = u.profile
+            profile_data = {
+                'email_verified': p.email_verified,
+                'approval_status': p.approval_status,
+                'rejected_reason': p.rejected_reason,
+                'profile_created_at': p.created_at.isoformat() if p.created_at else None,
+            }
+        except UserProfile.DoesNotExist:
+            profile_data = {
+                'email_verified': True,
+                'approval_status': 'approved',
+                'rejected_reason': None,
+                'profile_created_at': None,
+            }
+
+        if status_filter and profile_data.get('approval_status') != status_filter:
+            continue
+
+        result.append({
+            'id': u.id,
+            'username': u.username,
+            'email': u.email,
+            'is_active': u.is_active,
+            'is_superuser': u.is_superuser,
+            'date_joined': u.date_joined.isoformat(),
+            **profile_data,
+        })
+
+    return Response(result)
+
+
+@swagger_auto_schema(method='post', tags=['Admin'])
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_user_approve(request, user_id):
+    """Approve a user account."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    user = get_object_or_404(User, id=user_id)
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile.approval_status = ApprovalStatus.APPROVED
+    profile.save(update_fields=['approval_status'])
+
+    try:
+        from .utils.notifications import notify_account_approved
+        notify_account_approved(user)
+    except Exception:
+        pass
+
+    return Response({'message': f'User {user.username} approved'})
+
+
+@swagger_auto_schema(
+    method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'reason': openapi.Schema(type=openapi.TYPE_STRING),
+        }
+    ),
+    tags=['Admin']
+)
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_user_reject(request, user_id):
+    """Reject a user account."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    user = get_object_or_404(User, id=user_id)
+    reason = request.data.get('reason', '')
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile.approval_status = ApprovalStatus.REJECTED
+    profile.rejected_reason = reason
+    profile.save(update_fields=['approval_status', 'rejected_reason'])
+
+    try:
+        from .utils.notifications import notify_account_rejected
+        notify_account_rejected(user, reason)
+    except Exception:
+        pass
+
+    return Response({'message': f'User {user.username} rejected'})
+
+
+@swagger_auto_schema(method='delete', tags=['Admin'])
+@api_view(['DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_user_delete(request, user_id):
+    """Delete a user account."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    user = get_object_or_404(User, id=user_id)
+    if user.id == request.user.id:
+        return Response({'error': 'Cannot delete your own account'}, status=400)
+    username = user.username
+    user.delete()
+    return Response({'message': f'User {username} deleted'})
+
+
+@swagger_auto_schema(method='post', tags=['Admin'])
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_user_resend_verification(request, user_id):
+    """Resend verification email for a user."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+    from django.contrib.auth import get_user_model
+    from .utils.email_service import generate_verification_code, send_verification_email
+    User = get_user_model()
+    user = get_object_or_404(User, id=user_id)
+    if not user.email:
+        return Response({'error': 'User has no email address'}, status=400)
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    code = generate_verification_code()
+    profile.email_verification_code = code
+    profile.email_verification_expires = timezone.now() + timezone.timedelta(minutes=15)
+    profile.save(update_fields=['email_verification_code', 'email_verification_expires'])
+
+    send_verification_email(user, code)
+    return Response({'message': f'Verification email resent to {user.email}'})
+
+
+@swagger_auto_schema(method='get', tags=['Admin'])
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_acl_list(request):
+    """List all ACLs with filters."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    qs = ACL.objects.all().select_related('document', 'created_by')
+    document_id = request.query_params.get('document_id')
+    user_id = request.query_params.get('user_id')
+    subject_type = request.query_params.get('subject_type')
+
+    if document_id:
+        qs = qs.filter(document_id=document_id)
+    if user_id:
+        qs = qs.filter(subject_type='user', subject_id=str(user_id))
+    if subject_type:
+        qs = qs.filter(subject_type=subject_type)
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    result = []
+    for acl in qs[:100]:
+        data = ACLSerializer(acl).data
+        data['document_title'] = acl.document.title if acl.document else None
+        if acl.subject_type == 'user':
+            try:
+                u = User.objects.get(id=int(acl.subject_id))
+                data['subject_name'] = u.username
+            except (User.DoesNotExist, ValueError):
+                data['subject_name'] = f'User #{acl.subject_id}'
+        elif acl.subject_type == 'group':
+            try:
+                g = Group.objects.get(id=int(acl.subject_id))
+                data['subject_name'] = g.name
+            except (Group.DoesNotExist, ValueError):
+                data['subject_name'] = f'Group #{acl.subject_id}'
+        else:
+            data['subject_name'] = acl.subject_id
+        result.append(data)
+
+    return Response(result)
+
+
+@swagger_auto_schema(
+    method='put',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'role': openapi.Schema(type=openapi.TYPE_STRING),
+            'expires_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time'),
+        }
+    ),
+    tags=['Admin']
+)
+@swagger_auto_schema(method='delete', tags=['Admin'])
+@api_view(['PUT', 'DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_acl_detail(request, acl_id):
+    """Update or delete an ACL entry as admin."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    acl = get_object_or_404(ACL, id=acl_id)
+
+    if request.method == 'DELETE':
+        try:
+            from .utils.notifications import notify_acl_revoked
+            notify_acl_revoked(acl, request.user)
+        except Exception:
+            pass
+        acl.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    elif request.method == 'PUT':
+        role = request.data.get('role')
+        expires_at = request.data.get('expires_at')
+        old_role = acl.role
+        if role:
+            if role not in ['VIEWER', 'EDITOR', 'OWNER']:
+                return Response({'error': 'Invalid role'}, status=400)
+            acl.role = role
+        if 'expires_at' in request.data:
+            acl.expires_at = expires_at
+        acl.save()
+        if role and old_role != role:
+            try:
+                from .utils.notifications import notify_acl_changed
+                notify_acl_changed(acl, old_role, role, request.user)
+            except Exception:
+                pass
+        return Response(ACLSerializer(acl).data)
+
+
+@swagger_auto_schema(method='get', tags=['Admin'])
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def admin_dashboard_stats(request):
+    """Get dashboard stats for admin."""
+    denied = _require_admin(request)
+    if denied:
+        return denied
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    total_users = User.objects.count()
+    users_by_status = {}
+    for s in ApprovalStatus.choices:
+        users_by_status[s[0]] = UserProfile.objects.filter(approval_status=s[0]).count()
+
+    total_documents = Document.objects.count()
+    total_acls = ACL.objects.count()
+
+    recent_registrations = []
+    for u in User.objects.order_by('-date_joined')[:10]:
+        profile_data = {}
+        try:
+            p = u.profile
+            profile_data = {
+                'approval_status': p.approval_status,
+                'email_verified': p.email_verified,
+            }
+        except UserProfile.DoesNotExist:
+            profile_data = {'approval_status': 'approved', 'email_verified': True}
+        recent_registrations.append({
+            'id': u.id,
+            'username': u.username,
+            'email': u.email,
+            'date_joined': u.date_joined.isoformat(),
+            **profile_data,
+        })
+
+    recent_activity = AuditLogSerializer(
+        AuditLog.objects.all().order_by('-ts')[:20],
+        many=True
+    ).data
+
+    return Response({
+        'total_users': total_users,
+        'users_by_status': users_by_status,
+        'total_documents': total_documents,
+        'total_acls': total_acls,
+        'recent_registrations': recent_registrations,
+        'recent_activity': recent_activity,
     })

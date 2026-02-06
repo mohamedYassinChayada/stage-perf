@@ -212,6 +212,28 @@
   animation: spin 0.7s linear infinite;
 }
 
+.auth-pending-message {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.auth-pending-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.auth-pending-message p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.auth-pending-hint {
+  font-size: 0.85rem !important;
+  color: var(--text-muted) !important;
+}
+
 @media (max-width: 480px) {
   .auth-page {
     padding: 20px 16px;

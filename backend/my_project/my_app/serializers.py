@@ -8,7 +8,7 @@ try:
     from bs4 import BeautifulSoup
 except Exception:  # Fallback if bs4 isn't available in non-venv runs
     BeautifulSoup = None
-from .models import Document, QRLink, Attachment, Label, Collection, ShareLink, ACL, DocumentVersion, AuditLog
+from .models import Document, QRLink, Attachment, Label, Collection, ShareLink, ACL, DocumentVersion, AuditLog, Notification
 from django.contrib.auth.models import Group
 from .utils.ocr import is_supported_file_type, validate_file_size
 
@@ -551,11 +551,35 @@ class AuditLogSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'ts']
 
 
+class NotificationSerializer(serializers.ModelSerializer):
+    document_info = serializers.SerializerMethodField()
+    actor_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'notification_type', 'title', 'message',
+            'document', 'document_info', 'actor', 'actor_info',
+            'read', 'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+    def get_document_info(self, obj):
+        if obj.document:
+            return {'id': obj.document.id, 'title': obj.document.title}
+        return None
+
+    def get_actor_info(self, obj):
+        if obj.actor:
+            return {'id': obj.actor.id, 'username': obj.actor.username}
+        return None
+
+
 class DocumentRestoreSerializer(serializers.Serializer):
     """Serializer for document version restoration."""
     version_id = serializers.UUIDField(help_text="ID of the version to restore to")
     change_note = serializers.CharField(
-        max_length=500, 
-        required=False, 
+        max_length=500,
+        required=False,
         help_text="Optional note about the restoration"
     )

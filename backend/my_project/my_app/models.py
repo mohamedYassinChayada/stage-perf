@@ -202,6 +202,52 @@ class AuditLog(models.Model):
 	qr_link = models.ForeignKey(QRLink, null=True, blank=True, on_delete=models.SET_NULL)
 
 
+class ApprovalStatus(models.TextChoices):
+	PENDING_VERIFICATION = 'pending_verification', 'Pending Verification'
+	PENDING_APPROVAL = 'pending_approval', 'Pending Approval'
+	APPROVED = 'approved', 'Approved'
+	REJECTED = 'rejected', 'Rejected'
+
+
 class UserProfile(models.Model):
 	user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
 	avatar = models.TextField(blank=True, null=True)  # base64 data URI
+	email_verified = models.BooleanField(default=False)
+	email_verification_code = models.CharField(max_length=6, null=True, blank=True)
+	email_verification_expires = models.DateTimeField(null=True, blank=True)
+	approval_status = models.CharField(max_length=32, choices=ApprovalStatus.choices, default=ApprovalStatus.PENDING_VERIFICATION)
+	rejected_reason = models.TextField(null=True, blank=True)
+	created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class NotificationType(models.TextChoices):
+	DOCUMENT_EDITED = 'document_edited', 'Document Edited'
+	DOCUMENT_DELETED = 'document_deleted', 'Document Deleted'
+	ACL_GRANTED = 'acl_granted', 'Access Granted'
+	ACL_REVOKED = 'acl_revoked', 'Access Revoked'
+	ACL_CHANGED = 'acl_changed', 'Access Changed'
+	ACCOUNT_APPROVED = 'account_approved', 'Account Approved'
+	ACCOUNT_REJECTED = 'account_rejected', 'Account Rejected'
+	NEW_REGISTRATION = 'new_registration', 'New Registration'
+	EMAIL_VERIFIED = 'email_verified', 'Email Verified'
+
+
+class Notification(models.Model):
+	id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+	recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+	notification_type = models.CharField(max_length=32, choices=NotificationType.choices)
+	title = models.CharField(max_length=255)
+	message = models.TextField()
+	document = models.ForeignKey(Document, on_delete=models.SET_NULL, null=True, blank=True)
+	actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_notifications')
+	read = models.BooleanField(default=False)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['-created_at']
+		indexes = [
+			models.Index(fields=['recipient', 'read', '-created_at']),
+		]
+
+	def __str__(self):
+		return f"{self.notification_type} for {self.recipient.username}: {self.title}"

@@ -1,0 +1,28 @@
+.inactive-account-banner {
+  padding: 10px 20px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.banner-info {
+  background: var(--info-light, #e3f2fd);
+  color: var(--info, #1976d2);
+  border-bottom: 2px solid var(--info, #1976d2);
+}
+
+.banner-warning {
+  background: #fff3e0;
+  color: #e65100;
+  border-bottom: 2px solid #e65100;
+}
+
+.banner-error {
+  background: var(--danger-light, #ffebee);
+  color: var(--danger, #c62828);
+  border-bottom: 2px solid var(--danger, #c62828);
+}
+
+.banner-message {
+  display: inline-block;
+}

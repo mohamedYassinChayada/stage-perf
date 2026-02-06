@@ -31,6 +31,8 @@ urlpatterns = [
     path('auth/profile/', views.user_profile, name='auth_profile'),
     path('auth/change-password/', views.change_password, name='auth_change_password'),
     path('auth/avatar/', views.upload_avatar, name='auth_avatar'),
+    path('auth/verify-email/', views.verify_email, name='auth_verify_email'),
+    path('auth/resend-verification/', views.resend_verification, name='auth_resend_verification'),
 
     # Sharing & ACL
     path('documents/<int:pk>/share/', views.document_share_create, name='document_share_create'),
@@ -80,9 +82,26 @@ urlpatterns = [
     path('groups/<int:group_id>/events/poll/', views.group_events_poll, name='group_events_poll'),
     path('my-groups/events/poll/', views.user_groups_events_poll, name='user_groups_events_poll'),
 
+    # Notifications
+    path('notifications/', views.notifications_list, name='notifications_list'),
+    path('notifications/unread-count/', views.notifications_unread_count, name='notifications_unread_count'),
+    path('notifications/read-all/', views.notifications_mark_all_read, name='notifications_mark_all_read'),
+    path('notifications/poll/', views.notifications_poll, name='notifications_poll'),
+    path('notifications/<uuid:notification_id>/read/', views.notification_mark_read, name='notification_mark_read'),
+
     # Audit Logging and Version History
     path('documents/<int:document_id>/audit/', views.document_audit_log, name='document_audit_log'),
     path('documents/<int:document_id>/versions/', views.document_version_history, name='document_version_history'),
     path('documents/<int:document_id>/versions/<uuid:version_id>/', views.document_version_detail, name='document_version_detail'),
     path('documents/<int:document_id>/restore/', views.document_restore_version, name='document_restore_version'),
+
+    # Admin
+    path('admin/users/', views.admin_users_list, name='admin_users_list'),
+    path('admin/users/<int:user_id>/approve/', views.admin_user_approve, name='admin_user_approve'),
+    path('admin/users/<int:user_id>/reject/', views.admin_user_reject, name='admin_user_reject'),
+    path('admin/users/<int:user_id>/delete/', views.admin_user_delete, name='admin_user_delete'),
+    path('admin/users/<int:user_id>/resend-verification/', views.admin_user_resend_verification, name='admin_user_resend_verification'),
+    path('admin/acl/', views.admin_acl_list, name='admin_acl_list'),
+    path('admin/acl/<uuid:acl_id>/', views.admin_acl_detail, name='admin_acl_detail'),
+    path('admin/dashboard/stats/', views.admin_dashboard_stats, name='admin_dashboard_stats'),
 ] 

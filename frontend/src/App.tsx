@@ -20,12 +20,18 @@ import VersionHistoryPage from './pages/VersionHistoryPage';
 import SettingsPage from './pages/SettingsPage';
 import SnackbarContainer from './components/Snackbar';
 import { PageCacheProvider, usePageCache } from './contexts/PageCacheContext';
+import InactiveAccountBanner from './components/InactiveAccountBanner';
+import NotificationBell from './components/NotificationBell';
+import NotificationsPage from './pages/NotificationsPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 
 interface UserInfo {
   authenticated: boolean;
   username: string;
   email?: string;
   avatar_url?: string | null;
+  is_admin?: boolean;
+  approval_status?: string;
 }
 
 // Navigation component
@@ -57,60 +63,82 @@ const Navigation: React.FC = () => {
     }
   };
 
+  const isApproved = !user || user.approval_status === 'approved' || !user.approval_status;
+
   return (
-    <nav className="app-navigation">
-      <div className="nav-brand" />
-      <div className="nav-links">
-        <Link 
-          to="/" 
-          className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
-        >
-          📝 Document Editor
-        </Link>
-        <Link 
-          to="/ocr" 
-          className={`nav-link ${location.pathname === '/ocr' ? 'active' : ''}`}
-        >
-          🔍 OCR Editor
-        </Link>
-        <Link 
-          to="/documents" 
-          className={`nav-link ${location.pathname === '/documents' ? 'active' : ''}`}
-        >
-          📁 Documents & QR Codes
-        </Link>
-        <Link 
-          to="/collections" 
-          className={`nav-link ${location.pathname === '/collections' ? 'active' : ''}`}
-        >
-          🗂️ Collections
-        </Link>
-        <Link 
-          to="/groups" 
-          className={`nav-link ${location.pathname === '/groups' ? 'active' : ''}`}
-        >
-          👥 Groups
-        </Link>
-        <Link 
-          to="/group-documents" 
-          className={`nav-link ${location.pathname === '/group-documents' ? 'active' : ''}`}
-        >
-          📂 Group Documents
-        </Link>
-      </div>
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-        {user?.authenticated ? (
-          <UserMenu
-            username={user.username}
-            email={user.email}
-            avatarUrl={user.avatar_url}
-            onLogout={onLogout}
-          />
-        ) : (
-          <Link to="/auth" className="btn btn-primary">Login</Link>
-        )}
-      </div>
-    </nav>
+    <>
+      <nav className="app-navigation">
+        <div className="nav-brand" />
+        <div className="nav-links">
+          {isApproved && (
+            <>
+              <Link
+                to="/"
+                className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
+              >
+                Document Editor
+              </Link>
+              <Link
+                to="/ocr"
+                className={`nav-link ${location.pathname === '/ocr' ? 'active' : ''}`}
+              >
+                OCR Editor
+              </Link>
+              <Link
+                to="/documents"
+                className={`nav-link ${location.pathname === '/documents' ? 'active' : ''}`}
+              >
+                Documents & QR Codes
+              </Link>
+              <Link
+                to="/collections"
+                className={`nav-link ${location.pathname === '/collections' ? 'active' : ''}`}
+              >
+                Collections
+              </Link>
+              <Link
+                to="/groups"
+                className={`nav-link ${location.pathname === '/groups' ? 'active' : ''}`}
+              >
+                Groups
+              </Link>
+              <Link
+                to="/group-documents"
+                className={`nav-link ${location.pathname === '/group-documents' ? 'active' : ''}`}
+              >
+                Group Documents
+              </Link>
+              {user?.is_admin && (
+                <Link
+                  to="/admin"
+                  className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}
+                >
+                  Admin
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {user?.authenticated && isApproved && (
+            <NotificationBell />
+          )}
+          {user?.authenticated ? (
+            <UserMenu
+              username={user.username}
+              email={user.email}
+              avatarUrl={user.avatar_url}
+              onLogout={onLogout}
+            />
+          ) : (
+            <Link to="/auth" className="btn btn-primary">Login</Link>
+          )}
+        </div>
+      </nav>
+      {user?.authenticated && (
+        <InactiveAccountBanner approvalStatus={user.approval_status} />
+      )}
+    </>
   );
 };
 
@@ -186,7 +214,7 @@ const HomePage: React.FC = () => {
               Saving Document...
             </>
           ) : (
-            '\uD83D\uDCBE Save as Document with QR Code'
+            'Save as Document with QR Code'
           )}
         </button>
       </div>
@@ -228,6 +256,8 @@ const App: React.FC = () => {
               <Route path="/group-documents" element={<GroupDocumentsPage />} />
               <Route path="/share/:token" element={<ShareLinkPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/admin" element={<AdminDashboardPage />} />
             </Routes>
           </div>
           <SnackbarContainer />

@@ -1,0 +1,357 @@
+.admin-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+.admin-header {
+  margin-bottom: 24px;
+}
+
+.admin-header h1 {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border-color, #e0e0e0);
+}
+
+.admin-tab {
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+}
+
+.admin-tab:hover {
+  color: var(--accent-primary);
+}
+
+.admin-tab.active {
+  color: var(--accent-primary);
+}
+
+.admin-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  background: var(--accent-primary);
+  border-radius: 3px 3px 0 0;
+}
+
+.admin-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+/* Dashboard */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-card, white);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: var(--radius-lg, 8px);
+  padding: 20px;
+  text-align: center;
+}
+
+.stat-card.highlight {
+  border-color: var(--accent-primary, #1976d2);
+  background: var(--accent-primary-light, rgba(25,118,210,0.04));
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.dashboard-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dashboard-section h3 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+/* Tables */
+.admin-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: var(--radius-lg, 8px);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.admin-table th {
+  background: var(--hover-bg, rgba(0,0,0,0.03));
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  color: var(--text-primary);
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.empty-cell {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px !important;
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-pending_verification {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-pending_approval {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.status-approved {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-rejected {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.admin-badge {
+  background: var(--accent-primary, #1976d2);
+  color: white;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.role-owner { background: #fce4ec; color: #c62828; }
+.role-editor { background: #fff3e0; color: #e65100; }
+.role-viewer { background: #e8f5e9; color: #2e7d32; }
+
+/* User status tabs */
+.user-status-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.user-status-tab {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 20px;
+  background: var(--bg-card, white);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.user-status-tab.active {
+  background: var(--accent-primary, #1976d2);
+  color: white;
+  border-color: var(--accent-primary, #1976d2);
+}
+
+/* Action buttons */
+.action-cell {
+  white-space: nowrap;
+  display: flex;
+  gap: 6px;
+}
+
+.action-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--bg-card, white);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-secondary);
+}
+
+.action-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.action-btn.approve {
+  color: #2e7d32;
+  border-color: #2e7d32;
+}
+
+.action-btn.approve:hover {
+  background: #e8f5e9;
+}
+
+.action-btn.reject {
+  color: #e65100;
+  border-color: #e65100;
+}
+
+.action-btn.reject:hover {
+  background: #fff3e0;
+}
+
+.action-btn.delete {
+  color: #c62828;
+  border-color: #c62828;
+}
+
+.action-btn.delete:hover {
+  background: #ffebee;
+}
+
+.action-btn.resend {
+  color: #1565c0;
+  border-color: #1565c0;
+}
+
+.action-btn.resend:hover {
+  background: #e3f2fd;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.modal-content {
+  background: var(--bg-card, white);
+  border-radius: var(--radius-xl, 12px);
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.15));
+}
+
+.modal-content h3 {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.modal-field {
+  margin-bottom: 16px;
+}
+
+.modal-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.modal-field textarea,
+.modal-field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border-color, #e0e0e0);
+  border-radius: var(--radius-md, 6px);
+  font-size: 0.9rem;
+  background: var(--bg-input, white);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.modal-field textarea:focus,
+.modal-field select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .admin-table {
+    font-size: 0.8rem;
+  }
+}
