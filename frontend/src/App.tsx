@@ -179,7 +179,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="home-page">
       <header className="page-header">
-        <h1>Microsoft Word-Like Document Editor</h1>
+        <h1>Document Editor</h1>
         <p>Create and edit documents with professional formatting</p>
       </header>
 

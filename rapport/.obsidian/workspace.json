@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "chapitre-3-sprint1-authentification.md",
+                "file": "chapitre-5-sprint3-partage-recherche.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "chapitre-3-sprint1-authentification"
+              "title": "chapitre-5-sprint3-partage-recherche"
             }
           }
         ]
@@ -171,19 +171,21 @@
   },
   "active": "4e759ca11d723dfb",
   "lastOpenFiles": [
+    "chapitre-6-sprint4-administration-notifications.md",
+    "chapitre-7-conclusion-generale.md",
+    "chapitre-3-sprint1-authentification.md",
+    "chapitre-7-conclusion-generale.md.tmp.47696.1770414083933",
+    "chapitre-2-etude-prealable.md.tmp.47696.1770414039187",
+    "chapitre-2-etude-prealable.md.tmp.47696.1770414027282",
+    "chapitre-2-etude-prealable.md.tmp.47696.1770414018447",
+    "chapitre-1-introduction-generale.md.tmp.47696.1770414008126",
+    "chapitre-1-introduction-generale.md.tmp.47696.1770413996739",
+    "chapitre-6-sprint4-administration-notifications.md.tmp.47696.1770413964717",
     "chapitre-2-etude-prealable.md",
     "chapitre-1-introduction-generale.md",
     "chapitre-1-introduction-generale.md.tmp.44728.1770376727104",
     "chapitre-5-sprint3-partage-recherche.md.tmp.44728.1770376719838",
     "chapitre-6-conclusion-generale.md.tmp.44728.1770376688574",
-    "chapitre-6-conclusion-generale.md.tmp.44728.1770376680372",
-    "chapitre-6-conclusion-generale.md.tmp.44728.1770376670753",
-    "chapitre-6-conclusion-generale.md.tmp.44728.1770376663125",
-    "chapitre-6-conclusion-generale.md.tmp.44728.1770376657492",
-    "chapitre-3-sprint1-authentification.md.tmp.44728.1770376651397",
-    "chapitre-2-etude-prealable.md.tmp.44728.1770376644599",
-    "chapitre-2-etude-prealable.md.tmp.44728.1770376627348",
-    "chapitre-3-sprint1-authentification.md",
     "chapitre-5-sprint3-partage-recherche.md",
     "chapitre-6-conclusion-generale.md",
     "chapitre-4-sprint2-ocr-editeur.md"

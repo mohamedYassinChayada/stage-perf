@@ -34,7 +34,7 @@ Le projet vise a developper un systeme de gestion documentaire complet repondant
 
 Pour mener a bien ce projet, la methodologie agile **Scrum** a ete adoptee. Ce choix se justifie par la nature iterative et incrementale du developpement, qui permet de livrer des fonctionnalites utilisables a la fin de chaque sprint et d'integrer les retours de maniere continue.
 
-Le projet a ete decoupe en **trois sprints** :
+Le projet a ete decoupe en **quatre sprints** :
 
 - **Sprint 1** : Authentification et gestion des utilisateurs -- mise en place du socle applicatif avec le systeme d'authentification par tokens, le modele RBAC et le journal d'audit.
 
@@ -42,11 +42,13 @@ Le projet a ete decoupe en **trois sprints** :
 
 - **Sprint 3** : Partage securise et recherche -- implementation des QR codes, des liens de partage, de la recherche plein texte et de l'interface de recherche avancee.
 
+- **Sprint 4** : Administration, notifications et processus d'approbation -- developpement du tableau de bord administrateur, du systeme de notifications en temps reel, de la verification d'e-mail et du workflow d'approbation des comptes.
+
 Chaque sprint a suivi le cycle Scrum classique : planification, developpement, revue et retrospective.
 
 ## 5. Plan du rapport
 
-Le present rapport est structure en six chapitres :
+Le present rapport est structure en sept chapitres :
 
 - **Chapitre I : Introduction Generale** -- Presentation du contexte, de la problematique, des objectifs et de la methodologie adoptee.
 
@@ -58,4 +60,6 @@ Le present rapport est structure en six chapitres :
 
 - **Chapitre V : Sprint 3** -- Partage securise et recherche, detaillant les QR codes, les liens de partage et la recherche plein texte.
 
-- **Chapitre VI : Conclusion Generale** -- Bilan du travail, difficultes rencontrees, competences acquises et perspectives d'amelioration.
+- **Chapitre VI : Sprint 4** -- Administration, notifications et processus d'approbation, couvrant le tableau de bord administrateur, le systeme de notifications et la verification d'e-mail.
+
+- **Chapitre VII : Conclusion Generale** -- Bilan du travail, difficultes rencontrees, competences acquises et perspectives d'amelioration.

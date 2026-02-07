@@ -168,6 +168,10 @@ Les besoins fonctionnels identifies pour le systeme sont les suivants :
 | BF19 | Mode sombre et theming par variables CSS | Basse |
 | BF20 | Mise en cache des pages pour la performance (SPA Cache) | Basse |
 | BF21 | Profil utilisateur avec avatar | Basse |
+| BF22 | Tableau de bord administrateur (statistiques, gestion utilisateurs, ACL, groupes) | Haute |
+| BF23 | Systeme de notifications en temps reel (9 types, bell, page dediee) | Haute |
+| BF24 | Verification d'e-mail par code a 6 chiffres (Brevo SMTP) | Haute |
+| BF25 | Processus d'approbation des comptes par l'administrateur | Haute |
 
 ## 5. Besoins non fonctionnels
 
@@ -214,6 +218,10 @@ Le Product Backlog a ete constitue a partir des besoins fonctionnels identifies.
 | US14 | En tant qu'utilisateur, je veux gerer les documents de mes groupes sur une page dediee.                    | 5          | Sprint 3 |
 | US15 | En tant qu'utilisateur, je veux recevoir des mises a jour en temps reel sur mes documents (event polling). | 5          | Sprint 3 |
 | US16 | En tant qu'utilisateur, je veux un mode sombre et un profil avec avatar.                                   | 3          | Sprint 3 |
+| US17 | En tant qu'administrateur, je veux un tableau de bord pour superviser le systeme (utilisateurs, documents, ACL, groupes). | 8 | Sprint 4 |
+| US18 | En tant qu'utilisateur, je veux recevoir des notifications lors de changements d'acces ou d'actions sur mes documents. | 8 | Sprint 4 |
+| US19 | En tant que nouvel inscrit, je veux verifier mon adresse e-mail par un code a 6 chiffres avant d'acceder au systeme. | 5 | Sprint 4 |
+| US20 | En tant qu'administrateur, je veux approuver ou rejeter les inscriptions des nouveaux utilisateurs. | 5 | Sprint 4 |
 
 ### c. Planning des sprints
 
@@ -231,6 +239,9 @@ gantt
 
     section Sprint 3
     Partage Securise et Recherche      :s3, after s2, 14d
+
+    section Sprint 4
+    Administration et Notifications    :s4, after s3, 14d
 ```
 
 *Figure 3 : Planning des sprints (diagramme de Gantt)*
@@ -240,3 +251,4 @@ gantt
 | Sprint 1 | 2 semaines | Authentification et gestion des utilisateurs | US01, US02, US03, US04                   |
 | Sprint 2 | 2 semaines | OCR et editeur documentaire                  | US05, US06, US07, US08, US09             |
 | Sprint 3 | 2 semaines | Partage securise et recherche                | US10, US11, US12, US13, US14, US15, US16 |
+| Sprint 4 | 2 semaines | Administration, notifications et approbation | US17, US18, US19, US20                   |
